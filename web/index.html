@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bisect — Smart Contact &amp; Dictionary Search</title>
+  <meta name="description" content="Binary vs linear search, visualised. A DAA project." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2316181D'/%3E%3Cpath d='M8 23V9h3v14zM14.5 23V13h3v10zM21 23v-6h3v6z' fill='%23D9480F'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <div class="shell">
+    <!-- ───────────── Sidebar ───────────── -->
+    <aside class="rail" aria-label="Primary">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="7" />
+          <path d="M8 23V9h3v14zM14.5 23V13h3v10zM21 23v-6h3v6z" />
+        </svg>
+        <div>
+          <div class="brand-name">Bisect</div>
+          <div class="brand-sub">Contact &amp; Dictionary Search</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav">
+        <span class="nav-indicator" aria-hidden="true"></span>
+        <a href="#/dataset"  data-view="dataset"  class="nav-link"><span class="nav-k">1</span>Dataset</a>
+        <a href="#/search"   data-view="search"   class="nav-link"><span class="nav-k">2</span>Exact search</a>
+        <a href="#/prefix"   data-view="prefix"   class="nav-link"><span class="nav-k">3</span>Autocomplete</a>
+        <a href="#/edit"     data-view="edit"     class="nav-link"><span class="nav-k">4</span>Add &amp; delete</a>
+        <a href="#/bench"    data-view="bench"    class="nav-link"><span class="nav-k">5</span>Benchmark</a>
+        <a href="#/theory"   data-view="theory"   class="nav-link"><span class="nav-k">6</span>Theory</a>
+      </nav>
+
+      <div class="rail-foot">
+        <button class="icon-btn" id="themeToggle" type="button" data-tip="Toggle theme (T)" aria-label="Toggle dark mode">
+          <svg viewBox="0 0 24 24" class="i-sun" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg viewBox="0 0 24 24" class="i-moon" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        </button>
+        <button class="icon-btn" id="helpBtn" type="button" data-tip="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1M10 10h1M14 10h1M18 10h0M7 14h10"/></svg>
+        </button>
+        <span class="rail-note">DAA · DBCE</span>
+      </div>
+    </aside>
+
+    <!-- ───────────── Main ───────────── -->
+    <div class="main-col">
+      <header class="statusbar" id="statusbar" aria-live="polite">
+        <div class="sb-item sb-source">
+          <span class="dot" id="sbDot"></span>
+          <span id="sbLabel">No dataset loaded</span>
+        </div>
+        <div class="sb-metrics">
+          <div class="sb-item" data-tip="Number of entries in the sorted list"><span class="sb-k">n</span><span class="sb-v mono" id="sbN">—</span></div>
+          <div class="sb-item" data-tip="log₂(n): the height of the binary-search decision tree"><span class="sb-k">log₂ n</span><span class="sb-v mono" id="sbLog">—</span></div>
+          <div class="sb-item" data-tip="Worst-case comparisons for binary search: ⌊log₂ n⌋ + 1"><span class="sb-k">max probes</span><span class="sb-v mono accent-ink" id="sbMax">—</span></div>
+        </div>
+      </header>
+
+      <main id="main" tabindex="-1">
+
+        <!-- ═════════ DATASET ═════════ -->
+        <section class="view" data-view="dataset" aria-labelledby="h-dataset">
+          <header class="view-head">
+            <p class="eyebrow">Step 1</p>
+            <h1 id="h-dataset">Build the sorted list</h1>
+            <p class="lede">Binary search only works on sorted data. Generate random words or load your own contacts — everything is cleaned, lower-cased and sorted on the way in.</p>
+          </header>
+
+          <div class="split">
+            <div class="panel">
+              <div class="seg" role="tablist" aria-label="Data source">
+                <button role="tab" class="seg-btn is-on" aria-selected="true" data-src="gen" id="tab-gen" aria-controls="genForm">Generate</button>
+                <button role="tab" class="seg-btn" aria-selected="false" data-src="file" id="tab-file" aria-controls="filePane">Load file</button>
+              </div>
+
+              <form id="genForm" class="src-pane" data-pane="gen" role="tabpanel" aria-labelledby="tab-gen" novalidate>
+                <label class="field">
+                  <span class="field-l">Number of entries</span>
+                  <input id="genN" class="input mono" inputmode="numeric" autocomplete="off" value="100,000" aria-describedby="genHint" />
+                  <span class="field-h" id="genHint">Random words, 5–10 letters. Max 5,000,000.</span>
+                </label>
+                <div class="chips" role="group" aria-label="Presets">
+                  <button type="button" class="chip" data-n="1000">1K</button>
+                  <button type="button" class="chip" data-n="10000">10K</button>
+                  <button type="button" class="chip is-on" data-n="100000">100K</button>
+                  <button type="button" class="chip" data-n="1000000">1M</button>
+                  <button type="button" class="chip" data-n="5000000" data-tip="Takes ~10 s and ~500 MB RAM">5M</button>
+                </div>
+                <label class="field">
+                  <span class="field-l">Seed <em>optional</em></span>
+                  <input id="genSeed" class="input mono" inputmode="numeric" placeholder="e.g. 42 for a repeatable list" autocomplete="off" />
+                </label>
+                <button class="btn btn-primary" type="submit" id="genBtn">
+                  <span class="btn-label">Generate dataset</span>
+                  <span class="spinner" aria-hidden="true"></span>
+                </button>
+              </form>
+
+              <div class="src-pane" id="filePane" data-pane="file" hidden role="tabpanel" aria-labelledby="tab-file">
+                <label class="drop" id="drop" tabindex="0">
+                  <input type="file" id="fileInput" accept=".txt,.csv,text/plain" hidden />
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+                  <span class="drop-t">Drop a .txt file or <u>browse</u></span>
+                  <span class="drop-h">One name or word per line. Blank lines are dropped.</span>
+                </label>
+                <div class="file-status" id="fileStatus" hidden></div>
+              </div>
+            </div>
+
+            <div class="panel panel-quiet" id="profile">
+              <div class="empty" id="profileEmpty">
+                <div class="empty-art" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <h3>Nothing to search yet</h3>
+                <p>Generate a dataset or load a file and its profile will appear here.</p>
+              </div>
+
+              <div id="profileBody" hidden>
+                <div class="kv-grid">
+                  <div class="kv"><span class="kv-k">Entries</span><span class="kv-v mono" id="pfN"></span></div>
+                  <div class="kv"><span class="kv-k">Avg length</span><span class="kv-v mono" id="pfLen"></span></div>
+                  <div class="kv"><span class="kv-k">First</span><span class="kv-v mono trunc" id="pfFirst"></span></div>
+                  <div class="kv"><span class="kv-k">Last</span><span class="kv-v mono trunc" id="pfLast"></span></div>
+                </div>
+
+                <div class="subhead">
+                  <h3>First-letter distribution</h3>
+                  <span class="muted small">entries per initial letter</span>
+                </div>
+                <div class="letters" id="letters" role="img" aria-label="Distribution of first letters"></div>
+
+                <div class="subhead">
+                  <h3>Browse</h3>
+                  <form id="browseForm" class="inline-form" role="search">
+                    <input id="browseQ" class="input input-sm mono" placeholder="Jump to…" aria-label="Jump to word" autocomplete="off" />
+                  </form>
+                </div>
+                <ol class="rows mono" id="browseRows" aria-live="polite"></ol>
+                <div class="pager">
+                  <button class="btn btn-ghost btn-sm" id="pgPrev" type="button" aria-label="Previous page">← Prev</button>
+                  <span class="muted small mono" id="pgInfo"></span>
+                  <button class="btn btn-ghost btn-sm" id="pgNext" type="button" aria-label="Next page">Next →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═════════ SEARCH ═════════ -->
+        <section class="view" data-view="search" aria-labelledby="h-search" hidden>
+          <header class="view-head">
+            <p class="eyebrow">Step 2</p>
+            <h1 id="h-search">Exact search, head to head</h1>
+            <p class="lede">Each query runs through iterative binary search, recursive binary search and a linear scan — on the same list, counting every comparison.</p>
+          </header>
+
+          <form id="searchForm" class="bigsearch" role="search" novalidate>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
+            <input id="searchQ" class="bigsearch-input" placeholder="Search a word or name…" autocomplete="off" spellcheck="false" aria-label="Word or name to search" />
+            <button type="button" class="btn btn-ghost btn-sm" id="randomKey" data-tip="Pick a word that exists in the list">Random hit</button>
+            <button type="submit" class="btn btn-primary" id="searchBtn"><span class="btn-label">Search</span><span class="spinner" aria-hidden="true"></span></button>
+          </form>
+          <p class="needs-data" data-needs-data hidden>No dataset yet — <a href="#/dataset">generate one first</a>.</p>
+
+          <div id="searchOut" class="results" aria-live="polite"></div>
+        </section>
+
+        <!-- ═════════ PREFIX ═════════ -->
+        <section class="view" data-view="prefix" aria-labelledby="h-prefix" hidden>
+          <header class="view-head">
+            <p class="eyebrow">Step 3</p>
+            <h1 id="h-prefix">Autocomplete in O(log n + k)</h1>
+            <p class="lede">Lower-bound finds where the prefix would start, then we walk forward while words still match. Results update as you type.</p>
+          </header>
+
+          <div class="ac-wrap">
+            <div class="bigsearch">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h6"/></svg>
+              <input id="prefixQ" class="bigsearch-input" placeholder="Start typing a prefix…" autocomplete="off" spellcheck="false"
+                     role="combobox" aria-expanded="false" aria-controls="acList" aria-autocomplete="list" aria-label="Prefix" />
+              <kbd class="kbd-hint">↑↓ ↵</kbd>
+            </div>
+            <p class="needs-data" data-needs-data hidden>No dataset yet — <a href="#/dataset">generate one first</a>.</p>
+
+            <div class="ac-grid">
+              <div class="panel ac-panel">
+                <div class="ac-head">
+                  <span id="acCount" class="muted small">Type at least one letter.</span>
+                </div>
+                <ul class="ac-list mono" id="acList" role="listbox" aria-label="Matches"></ul>
+              </div>
+              <div class="panel panel-quiet ac-side">
+                <h3 class="side-h">Cost of this lookup</h3>
+                <div class="cost">
+                  <div class="cost-row"><span>Lower-bound probes</span><b class="mono" id="acLb">—</b></div>
+                  <div class="cost-bar"><span id="acLbBar" class="fill-binary"></span><span id="acWalkBar" class="fill-walk"></span></div>
+                  <div class="cost-row"><span>Forward walk (k)</span><b class="mono" id="acWalk">—</b></div>
+                  <div class="cost-row cost-total"><span>Total comparisons</span><b class="mono" id="acTotal">—</b></div>
+                  <div class="cost-row"><span>Starts at index</span><b class="mono" id="acStart">—</b></div>
+                  <div class="cost-row"><span>Wall time</span><b class="mono" id="acMs">—</b></div>
+                </div>
+                <p class="muted small">A linear prefix scan would touch all <b class="mono" id="acN">n</b> entries every time.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═════════ EDIT ═════════ -->
+        <section class="view" data-view="edit" aria-labelledby="h-edit" hidden>
+          <header class="view-head">
+            <p class="eyebrow">Step 4</p>
+            <h1 id="h-edit">Add &amp; delete, without breaking order</h1>
+            <p class="lede">Inserts use <code>bisect.insort</code> to land in the right slot; deletes find their target with binary search first.</p>
+          </header>
+
+          <div class="split split-even">
+            <form class="panel" id="addForm" novalidate>
+              <h3 class="side-h">Add an entry</h3>
+              <label class="field">
+                <span class="field-l">Word or name</span>
+                <input id="addQ" class="input mono" autocomplete="off" placeholder="e.g. karen" />
+              </label>
+              <button class="btn btn-primary" type="submit" id="addBtn"><span class="btn-label">Insert in order</span><span class="spinner" aria-hidden="true"></span></button>
+            </form>
+
+            <form class="panel" id="delForm" novalidate>
+              <h3 class="side-h">Delete an entry</h3>
+              <label class="field">
+                <span class="field-l">Word or name</span>
+                <input id="delQ" class="input mono" autocomplete="off" placeholder="exact match" />
+              </label>
+              <button class="btn btn-danger" type="submit" id="delBtn" data-needs-data-btn><span class="btn-label">Find &amp; delete</span><span class="spinner" aria-hidden="true"></span></button>
+            </form>
+          </div>
+
+          <div class="panel panel-quiet" id="editOut">
+            <div class="empty empty-sm">
+              <h3>No changes yet</h3>
+              <p>Insert or delete an entry to see exactly where it lands in the list.</p>
+            </div>
+          </div>
+
+          <div class="log-wrap">
+            <h3 class="side-h">Session log</h3>
+            <ol class="log mono" id="editLog"><li class="muted">—</li></ol>
+          </div>
+        </section>
+
+        <!-- ═════════ BENCHMARK ═════════ -->
+        <section class="view" data-view="bench" aria-labelledby="h-bench" hidden>
+          <header class="view-head">
+            <p class="eyebrow">Step 5</p>
+            <h1 id="h-bench">Watch the curves diverge</h1>
+            <p class="lede">For each size we generate a fresh list (seed 42) and search its <em>last</em> element — linear search's worst case. Sizes run one at a time so you can watch the chart fill in.</p>
+          </header>
+
+          <div class="toolbar">
+            <div class="chips" role="group" aria-label="Benchmark sizes" id="benchSizes">
+              <button type="button" class="chip is-on" data-n="1000"    aria-pressed="true">1K</button>
+              <button type="button" class="chip is-on" data-n="10000"   aria-pressed="true">10K</button>
+              <button type="button" class="chip is-on" data-n="100000"  aria-pressed="true">100K</button>
+              <button type="button" class="chip is-on" data-n="1000000" aria-pressed="true">1M</button>
+              <button type="button" class="chip" data-n="2000000"  aria-pressed="false">2M</button>
+              <button type="button" class="chip" data-n="5000000"  aria-pressed="false" data-tip="Slow: ~15 s">5M</button>
+            </div>
+            <div class="seg seg-sm" role="tablist" aria-label="Metric" id="metricSeg">
+              <button role="tab" class="seg-btn is-on" aria-selected="true" data-metric="steps">Comparisons</button>
+              <button role="tab" class="seg-btn" aria-selected="false" data-metric="time">Time (ms)</button>
+            </div>
+            <button class="btn btn-primary" id="benchBtn" type="button"><span class="btn-label">Run benchmark</span><span class="spinner" aria-hidden="true"></span></button>
+          </div>
+
+          <div class="progress" id="benchProgress" hidden><span></span></div>
+
+          <div class="panel chart-panel">
+            <div class="legend" id="legend">
+              <span class="lg"><i class="sw sw-binary"></i>Binary · O(log n)</span>
+              <span class="lg"><i class="sw sw-linear"></i>Linear · O(n)</span>
+              <span class="muted small lg-note">log–log scale</span>
+            </div>
+            <div class="chart" id="chart" role="img" aria-label="Benchmark chart">
+              <div class="empty empty-sm" id="chartEmpty">
+                <h3>No runs yet</h3>
+                <p>Pick sizes and press <b>Run benchmark</b>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table mono" id="benchTable">
+              <thead>
+                <tr><th>n</th><th>Linear steps</th><th>Binary steps</th><th>log₂ n</th><th>Linear ms</th><th>Binary ms</th><th>Fewer comparisons</th></tr>
+              </thead>
+              <tbody><tr class="t-empty"><td colspan="7">Results will appear here.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ═════════ THEORY ═════════ -->
+        <section class="view" data-view="theory" aria-labelledby="h-theory" hidden>
+          <header class="view-head">
+            <p class="eyebrow">Step 6</p>
+            <h1 id="h-theory">Why it's Θ(log n)</h1>
+            <p class="lede">Each probe discards half of what's left. The Master Method turns that intuition into a proof.</p>
+          </header>
+
+          <div class="theory">
+            <article class="proof">
+              <ol class="proof-steps">
+                <li>
+                  <span class="ps-n">01</span>
+                  <div>
+                    <h3>Write the recurrence</h3>
+                    <p>One comparison, then recurse on half the array.</p>
+                    <div class="formula">T(n) = <b>1</b>·T(n / <b>2</b>) + Θ(1)</div>
+                  </div>
+                </li>
+                <li>
+                  <span class="ps-n">02</span>
+                  <div>
+                    <h3>Read off a, b, f(n)</h3>
+                    <div class="abf">
+                      <div><span class="muted">a</span><b>1</b><small>subproblem</small></div>
+                      <div><span class="muted">b</span><b>2</b><small>size shrinks by</small></div>
+                      <div><span class="muted">f(n)</span><b>Θ(1)</b><small>work per call</small></div>
+                    </div>
+                  </div>
+                </li>
+                <li>
+                  <span class="ps-n">03</span>
+                  <div>
+                    <h3>Compare f(n) with n<sup>log<sub>b</sub> a</sup></h3>
+                    <div class="formula">n<sup>log₂ 1</sup> = n<sup>0</sup> = 1 &nbsp;⇒&nbsp; f(n) = Θ(n<sup>log<sub>b</sub>a</sup>)</div>
+                  </div>
+                </li>
+                <li>
+                  <span class="ps-n">04</span>
+                  <div>
+                    <h3>Case 2 applies</h3>
+                    <div class="formula formula-final">T(n) = Θ(n<sup>log<sub>b</sub>a</sup> · log n) = <b>Θ(log n)</b></div>
+                  </div>
+                </li>
+              </ol>
+            </article>
+
+            <aside class="panel halving">
+              <h3 class="side-h">Halve it yourself</h3>
+              <label class="field">
+                <span class="field-l">n = <b class="mono" id="hvN">1,000,000</b></span>
+                <input type="range" id="hvRange" min="1" max="9" step="0.01" value="6" aria-label="n (log scale)" />
+              </label>
+              <ol class="halves mono" id="halves"></ol>
+              <p class="halving-sum">At most <b class="mono accent-ink" id="hvSteps"></b> probes to search <b class="mono" id="hvN2"></b> entries.</p>
+            </aside>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Algorithm</th><th>Best</th><th>Average</th><th>Worst</th><th>Space</th></tr></thead>
+              <tbody>
+                <tr><td><span class="sw sw-binary"></span> Binary (iterative)</td><td class="mono">O(1)</td><td class="mono">O(log n)</td><td class="mono">O(log n)</td><td class="mono">O(1)</td></tr>
+                <tr><td><span class="sw sw-binary"></span> Binary (recursive)</td><td class="mono">O(1)</td><td class="mono">O(log n)</td><td class="mono">O(log n)</td><td class="mono">O(log n) stack</td></tr>
+                <tr><td><span class="sw sw-linear"></span> Linear</td><td class="mono">O(1)</td><td class="mono">O(n)</td><td class="mono">O(n)</td><td class="mono">O(1)</td></tr>
+                <tr><td><span class="sw sw-walk"></span> Prefix (lower-bound + walk)</td><td class="mono" colspan="3">O(log n + k), k = matches</td><td class="mono">O(1)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Mobile tab bar -->
+  <nav class="tabbar" aria-label="Primary (mobile)">
+    <a href="#/dataset" data-view="dataset">Data</a>
+    <a href="#/search" data-view="search">Search</a>
+    <a href="#/prefix" data-view="prefix">Prefix</a>
+    <a href="#/edit" data-view="edit">Edit</a>
+    <a href="#/bench" data-view="bench">Bench</a>
+    <a href="#/theory" data-view="theory">Theory</a>
+  </nav>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <dialog class="dialog" id="helpDialog" aria-labelledby="helpTitle">
+    <h2 id="helpTitle">Keyboard shortcuts</h2>
+    <dl class="shortcuts">
+      <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Switch screen</dd>
+      <dt><kbd>/</kbd></dt><dd>Focus the search box</dd>
+      <dt><kbd>R</kbd></dt><dd>Search a random existing word</dd>
+      <dt><kbd>T</kbd></dt><dd>Toggle light / dark</dd>
+      <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>↵</kbd></dt><dd>Pick an autocomplete match</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Close / leave a field</dd>
+    </dl>
+    <form method="dialog"><button class="btn btn-primary btn-sm">Got it</button></form>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
