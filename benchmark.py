@@ -1,33 +1,50 @@
 """
-benchmark.py 
+benchmark.py
 ------------------------------------------------------------
 PURPOSE:
-    Measures and compares Linear Search vs Binary Search.
+    Measures and compares the search algorithms in search.py.
     For each dataset size n we record:
       - number of comparisons (steps)  -> proves the theory
       - running time in seconds        -> shows real-world speed
+      - time to sort the data          -> is sorting worth it?
 
 THEORY BEHIND THE NUMBERS:
-    Linear search : O(n)      -> steps grow in proportion to n
-    Binary search : O(log n)  -> steps grow like log2(n)
+    Linear search        : O(n)          -> steps grow in proportion to n
+    Jump search          : O(sqrt n)     -> steps grow like sqrt(n)
+    Binary search        : O(log n)      -> steps grow like log2(n)
+    Exponential search   : O(log i)      -> i = position of the key
+    Interpolation search : O(log log n)  -> on uniformly spread data
     Binary recurrence: T(n) = T(n/2) + O(1)  (Master Method, Case 2)
+
+CASES:
+    "worst"   : search the LAST element (linear must check all n items)
+    "average" : search random words that ARE in the list
+    "miss"    : search random words that are NOT in the list
 
 NOTE: No input() here. This file only calculates and returns
       results; main.py / server.py show them to the user.
 """
-<<<<<<< HEAD
-import math
-import time
-
-from data import generate_data
-from search import binary_search, exponential_search, jump_search, linear_search
-=======
-import math  # math.log2(n) gives the theoretical number of steps
+import math    # math.log2(n) gives the theoretical number of steps
+import random
+import string
 import time    # time.perf_counter() = high-precision stopwatch
->>>>>>> c70f8fa312765d0152d9d95b3e5d6c24bbcae354
 
 from data import generate_data                      # builds a sorted dataset
-from search import binary_search, linear_search     # the two algorithms
+from search import (binary_search, exponential_search, interpolation_search,
+                    jump_search, linear_search)
+
+CASES = ("worst", "average", "miss")
+
+# name used in result keys -> (function, how many calls to average over)
+# Fast algorithms are repeated many times so their tiny timings are measurable.
+ALGORITHMS = {
+    "linear": (linear_search, 3),
+    "jump": (jump_search, 50),
+    "binary": (binary_search, 2000),
+    "exp": (exponential_search, 2000),
+    "interp": (interpolation_search, 2000),
+}
+
 
 # Runs one search function and measures it.
 # repeats = how many times to run it. Binary search is too fast to measure
@@ -44,63 +61,105 @@ def time_search(func, arr, key, repeats=1):
     end = time.perf_counter()      # end the stopwatch
     return (end - start) / repeats, comps     # divide by repeats to get the time of a single search
 
-# Runs the benchmark for each dataset size (1,000 to 1,000,000).
-# We search for the LAST element because that is the worst case for
-# linear search (it must check all n items), while binary search
-# still needs only about log2(n) steps.
-def run_benchmark(sizes=(1000, 10000, 100000, 1000000)):
-     # same seed = same random data every run, so results are repeatable
+
+# Like time_search, but over a list of keys.
+# Returns (average time per search in seconds, average comparisons per search).
+def time_search_many(func, arr, keys, calls):
+    repeats = max(1, calls // len(keys))
+    total_steps = 0
+    start = time.perf_counter()
+    for _ in range(repeats):
+        for key in keys:
+            _, comps = func(arr, key)
+            total_steps += comps
+    elapsed = time.perf_counter() - start
+    searches = repeats * len(keys)
+    return elapsed / searches, total_steps / searches
+
+
+# Picks the words to search for, depending on the case.
+def pick_keys(arr, case, rng):
+    n = len(arr)
+    if case == "worst":
+        return [arr[-1]]                       # last element = worst case for linear search
+    count = 30 if n <= 100_000 else 8          # fewer keys for big n: linear search is slow
+    if case == "average":
+        return [arr[rng.randrange(n)] for _ in range(count)]
+    # "miss": generate_data makes words of 5-10 letters, so 11 letters never exist
+    return ["".join(rng.choices(string.ascii_lowercase, k=11)) for _ in range(count)]
+
+
+# Times how long Python's sort (Timsort, O(n log n)) takes on a shuffled copy.
+# Binary search needs sorted data, so this is the one-off price we pay for it.
+def time_sort(arr, rng):
+    shuffled = arr[:]
+    rng.shuffle(shuffled)
+    start = time.perf_counter()
+    shuffled.sort()
+    return time.perf_counter() - start
+
+
+# Runs the benchmark for each dataset size.
+def run_benchmark(sizes=(1000, 10000, 100000, 1000000), case="worst", with_sort=True):
     """
-    For each n: generate data, search the LAST element
-    (worst case for linear), return list of result dicts.
+    For each n: generate data (seed 42), search keys for the chosen case,
+    return a list of result dicts.
     """
+    if case not in CASES:
+        raise ValueError(f"case must be one of {CASES}")
     results = []
     for n in sizes:
-        arr = generate_data(n, seed=42)
-<<<<<<< HEAD
-        key = arr[-1]
-        lin_t, lin_c = time_search(linear_search, arr, key, repeats=3)
-        bin_t, bin_c = time_search(binary_search, arr, key, repeats=2000)
-        jmp_t, jmp_c = time_search(jump_search, arr, key, repeats=50)
-        exp_t, exp_c = time_search(exponential_search, arr, key, repeats=2000)
-=======
-        key = arr[-1]     # last element = worst case for linear search
-        lin_t, lin_c = time_search(linear_search, arr, key, repeats=3)         # linear search is slow, so 3 repeats are enough
-        bin_t, bin_c = time_search(binary_search, arr, key, repeats=2000)       # binary search is very fast, so repeat 2000 times and average
->>>>>>> c70f8fa312765d0152d9d95b3e5d6c24bbcae354
-        results.append({
-            "n": n,
-            "linear_steps": lin_c,
-            "binary_steps": bin_c,
-            "log2n": math.log2(n),      # theoretical step count: should be close to binary_steps
-            "linear_time": lin_t,
-            "binary_time": bin_t,
-            "jump_steps": jmp_c,
-            "jump_time": jmp_t,
-            "exp_steps": exp_c,
-            "exp_time": exp_t,
-        })
+        arr = generate_data(n, seed=42)        # same seed = same data every run, so results are repeatable
+        rng = random.Random(n)
+        keys = pick_keys(arr, case, rng)
+        row = {"n": n, "case": case, "keys": len(keys), "log2n": math.log2(n)}
+        for name, (func, calls) in ALGORITHMS.items():
+            t, steps = time_search_many(func, arr, keys, calls)
+            row[f"{name}_time"] = t
+            row[f"{name}_steps"] = int(steps) if case == "worst" else round(steps, 1)
+        if with_sort:
+            row["sort_time"] = time_sort(arr, rng)
+            row.update(break_even(row))
+        results.append(row)
     return results
 
-# Turns the results into a neat table (a string) with columns:
-# n, linear steps, binary steps, log2(n), linear time, binary time.
+
+# How many searches before "sort once, then binary search" beats
+# "don't sort, just linear search every time"?
+#   sort_cost + k * binary_cost  <  k * linear_cost
+#   k > sort_cost / (linear_cost - binary_cost)
+def break_even(row):
+    n = row["n"]
+    saved_steps = row["linear_steps"] - row["binary_steps"]
+    saved_time = row["linear_time"] - row["binary_time"]
+    sort_steps = n * math.log2(n) if n > 1 else 0   # comparison model of sorting
+    return {
+        "break_even_steps": math.ceil(sort_steps / saved_steps) if saved_steps > 0 else None,
+        "break_even_time": math.ceil(row["sort_time"] / saved_time) if saved_time > 0 else None,
+    }
+
+
+# Turns the results into a neat table (a string).
 def format_table(results):
     """Return the results as a printable string."""
-    head = (f"{'n':>10} | {'Linear steps':>12} | {'Jump steps':>10} | "
-            f"{'Exp steps':>9} | {'Binary steps':>12} | {'log2(n)':>8} | "
-            f"{'Linear ms':>10} | {'Jump ms':>9} | {'Binary ms':>10}")
-    lines = [head, "-" * len(head)]
+    head = (f"{'n':>10} | {'Linear':>12} | {'Jump':>9} | {'Exp':>6} | "
+            f"{'Binary':>6} | {'Interp':>6} | {'log2(n)':>7} | "
+            f"{'Linear ms':>10} | {'Binary ms':>9} | {'Sort ms':>8} | {'Sort pays off after':>19}")
+    lines = [f"Comparisons per search ({results[0]['case'] if results else 'worst'} case)",
+             head, "-" * len(head)]
     for r in results:
+        be = r.get("break_even_time")
         lines.append(
-            f"{r['n']:>10,} | {r['linear_steps']:>12,} | {r['jump_steps']:>10,} | "
-            f"{r['exp_steps']:>9} | {r['binary_steps']:>12} | {r['log2n']:>8.2f} | "
-            f"{r['linear_time']*1000:>10.4f} | {r['jump_time']*1000:>9.4f} | "
-            f"{r['binary_time']*1000:>10.5f}")
+            f"{r['n']:>10,} | {r['linear_steps']:>12,} | {r['jump_steps']:>9,} | "
+            f"{r['exp_steps']:>6} | {r['binary_steps']:>6} | {r['interp_steps']:>6} | "
+            f"{r['log2n']:>7.2f} | {r['linear_time']*1000:>10.4f} | "
+            f"{r['binary_time']*1000:>9.5f} | {r.get('sort_time', 0)*1000:>8.2f} | "
+            f"{(f'{be:,} searches' if be else '-'):>19}")
     return "\n".join(lines)
 
-# Optional: draws a graph of time vs n for both searches.
-# Needs matplotlib. Log-scale axes are used because linear and
-# binary times are very different.
+
+# Optional: draws a graph of time vs n for all searches.
+# Needs matplotlib. Log-scale axes are used because the times are very different.
 def plot_results(results):
     """Optional graph. Returns (ok, message)."""
     try:
@@ -112,9 +171,10 @@ def plot_results(results):
     plt.plot(ns, [r["jump_time"] * 1000 for r in results], "^-", label="Jump O(sqrt n)")
     plt.plot(ns, [r["exp_time"] * 1000 for r in results], "d--", label="Exponential O(log n)")
     plt.plot(ns, [r["binary_time"] * 1000 for r in results], "s-", label="Binary O(log n)")
+    plt.plot(ns, [r["interp_time"] * 1000 for r in results], "v:", label="Interpolation O(log log n)")
     plt.xlabel("n (dataset size)")
-    plt.ylabel("time (ms)")
-    plt.title("Search algorithms: time vs n")
+    plt.ylabel("time per search (ms)")
+    plt.title(f"Search algorithms: time vs n ({results[0]['case']} case)")
     plt.xscale("log")
     plt.yscale("log")
     plt.legend()

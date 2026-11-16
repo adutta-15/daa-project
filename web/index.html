@@ -160,7 +160,7 @@
           <header class="view-head">
             <p class="eyebrow">Step 2</p>
             <h1 id="h-search">Exact search, head to head</h1>
-            <p class="lede">Each query runs through iterative and recursive binary search, exponential search, jump search and a linear scan — on the same list, counting every comparison.</p>
+            <p class="lede">Each query runs through iterative and recursive binary search, interpolation search, exponential search, jump search and a linear scan — on the same list, counting every comparison.</p>
           </header>
 
           <form id="searchForm" class="bigsearch" role="search" novalidate>
@@ -260,7 +260,7 @@
           <header class="view-head">
             <p class="eyebrow">Step 5</p>
             <h1 id="h-bench">Watch the curves diverge</h1>
-            <p class="lede">For each size we generate a fresh list (seed 42) and search its <em>last</em> element — linear search's worst case. Sizes run one at a time so you can watch the chart fill in.</p>
+            <p class="lede">For each size we generate a fresh list (seed 42) and <span id="caseText">search its <em>last</em> element — linear search's worst case</span>. Sizes run one at a time so you can watch the chart fill in.</p>
           </header>
 
           <div class="toolbar">
@@ -272,10 +272,16 @@
               <button type="button" class="chip" data-n="2000000"  aria-pressed="false">2M</button>
               <button type="button" class="chip" data-n="5000000"  aria-pressed="false" data-tip="Slow: ~15 s">5M</button>
             </div>
+            <div class="seg seg-sm" role="tablist" aria-label="Case" id="caseSeg">
+              <button role="tab" class="seg-btn is-on" aria-selected="true" data-case="worst" data-tip="Search the last element">Worst</button>
+              <button role="tab" class="seg-btn" aria-selected="false" data-case="average" data-tip="Random words that exist">Average</button>
+              <button role="tab" class="seg-btn" aria-selected="false" data-case="miss" data-tip="Random words that don't exist">Miss</button>
+            </div>
             <div class="seg seg-sm" role="tablist" aria-label="Metric" id="metricSeg">
               <button role="tab" class="seg-btn is-on" aria-selected="true" data-metric="steps">Comparisons</button>
               <button role="tab" class="seg-btn" aria-selected="false" data-metric="time">Time (ms)</button>
             </div>
+            <button class="btn btn-ghost btn-sm" id="csvBtn" type="button" disabled data-tip="Download the results for your report">Export CSV</button>
             <button class="btn btn-primary" id="benchBtn" type="button"><span class="btn-label">Run benchmark</span><span class="spinner" aria-hidden="true"></span></button>
           </div>
 
@@ -283,6 +289,7 @@
 
           <div class="panel chart-panel">
             <div class="legend" id="legend">
+              <span class="lg"><i class="sw sw-interp"></i>Interpolation · O(log log n)</span>
               <span class="lg"><i class="sw sw-binary"></i>Binary · O(log n)</span>
               <span class="lg"><i class="sw sw-exp"></i>Exponential · O(log n)</span>
               <span class="lg"><i class="sw sw-jump"></i>Jump · O(√n)</span>
@@ -300,10 +307,24 @@
           <div class="table-wrap">
             <table class="table mono" id="benchTable">
               <thead>
-                <tr><th>n</th><th>Linear steps</th><th>Jump steps</th><th>Exp steps</th><th>Binary steps</th><th>log₂ n</th><th>Linear ms</th><th>Jump ms</th><th>Binary ms</th><th>Linear ÷ binary</th></tr>
+                <tr><th>n</th><th>Linear</th><th>Jump</th><th>Exp</th><th>Binary</th><th>Interp</th><th>log₂ n</th><th>Linear ms</th><th>Binary ms</th><th>Sort time</th><th>Sort pays off after</th><th>Linear ÷ binary</th></tr>
               </thead>
-              <tbody><tr class="t-empty"><td colspan="10">Results will appear here.</td></tr></tbody>
+              <tbody><tr class="t-empty"><td colspan="12">Results will appear here.</td></tr></tbody>
             </table>
+          </div>
+          <p class="muted small table-note">Algorithm columns are comparisons per search (averaged over the keys in the average and miss cases).</p>
+
+          <div class="insights" id="benchInsights" hidden>
+            <div class="panel" id="slopesPanel">
+              <h3 class="side-h">Measured growth</h3>
+              <p class="muted small">Slope of each log–log line for <span id="slopeWhat">comparisons</span>: about 1 means O(n), 0.5 means O(√n), close to 0 means logarithmic.</p>
+              <ul class="slopes" id="slopes"></ul>
+            </div>
+            <div class="panel">
+              <h3 class="side-h">Is sorting worth it?</h3>
+              <p class="muted small">Binary, jump, exponential and interpolation search all need sorted data. Linear search doesn't.</p>
+              <p id="breakEven" class="break-even"></p>
+            </div>
           </div>
         </section>
 
@@ -371,6 +392,7 @@
               <tbody>
                 <tr><td><span class="sw sw-binary"></span> Binary (iterative)</td><td class="mono">O(1)</td><td class="mono">O(log n)</td><td class="mono">O(log n)</td><td class="mono">O(1)</td></tr>
                 <tr><td><span class="sw sw-binary"></span> Binary (recursive)</td><td class="mono">O(1)</td><td class="mono">O(log n)</td><td class="mono">O(log n)</td><td class="mono">O(log n) stack</td></tr>
+                <tr><td><span class="sw sw-interp"></span> Interpolation</td><td class="mono">O(1)</td><td class="mono">O(log log n)</td><td class="mono">O(n)</td><td class="mono">O(1)</td></tr>
                 <tr><td><span class="sw sw-exp"></span> Exponential</td><td class="mono">O(1)</td><td class="mono">O(log i)</td><td class="mono">O(log n)</td><td class="mono">O(1)</td></tr>
                 <tr><td><span class="sw sw-jump"></span> Jump (block √n)</td><td class="mono">O(1)</td><td class="mono">O(√n)</td><td class="mono">O(√n)</td><td class="mono">O(1)</td></tr>
                 <tr><td><span class="sw sw-linear"></span> Linear</td><td class="mono">O(1)</td><td class="mono">O(n)</td><td class="mono">O(n)</td><td class="mono">O(1)</td></tr>

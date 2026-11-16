@@ -114,6 +114,49 @@ def exponential_search(arr, key):
     return -1, count
 
 
+def _rank(word, width=8):
+    """
+    Map a word to a number in [0, 1) that respects alphabetical order
+    (non-decreasing): 'a...' is near 0, 'z...' is near 1. Reads the word
+    as a base-28 fraction of its first `width` characters.
+    """
+    value, scale = 0.0, 1.0
+    for ch in word[:width]:
+        scale /= 28
+        value += min(max(ord(ch) - 96, 0), 27) * scale
+    return value
+
+
+def interpolation_search(arr, key):
+    """
+    Interpolation search: instead of always probing the middle, guess
+    where the key should be from its value, like opening a dictionary
+    near 'w' for 'wolf'.
+        mid = low + (key - arr[low]) * (high - low) / (arr[high] - arr[low])
+    Time O(log log n) on uniformly spread data (our random words are),
+    but O(n) in the worst case (very skewed data). Space O(1).
+    Words are turned into numbers with _rank(). Only probes are counted.
+    """
+    low, high = 0, len(arr) - 1
+    count = 0
+    target = _rank(key)
+    while low <= high and arr[low] <= key <= arr[high]:
+        lo_v, hi_v = _rank(arr[low]), _rank(arr[high])
+        if hi_v == lo_v:
+            mid = low
+        else:
+            mid = low + int((target - lo_v) * (high - low) / (hi_v - lo_v))
+            mid = min(max(mid, low), high)
+        count += 1
+        if arr[mid] == key:
+            return mid, count
+        elif arr[mid] < key:
+            low = mid + 1
+        else:
+            high = mid - 1
+    return -1, count
+
+
 def lower_bound(arr, prefix):
     """
     First index i such that arr[i] >= prefix.

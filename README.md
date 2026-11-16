@@ -1,6 +1,6 @@
 # Bisect — Smart Contact / Dictionary Search
 
-> A Design & Analysis of Algorithms (DAA) project that shows, with real numbers, why **binary search** beats **linear search** (with **jump search** and **exponential search** as two more points of comparison) — plus autocomplete in **O(log n + k)**, order-preserving insert/delete, a benchmark, and a Master Method proof.
+> A Design & Analysis of Algorithms (DAA) project that shows, with real numbers, why **binary search** beats **linear search** (with **jump**, **exponential** and **interpolation search** as more points of comparison) — plus autocomplete in **O(log n + k)**, order-preserving insert/delete, a benchmark, and a Master Method proof.
 
 The project ships with two front-ends over the **same** Python code:
 
@@ -68,6 +68,7 @@ To try it with real names, load **`sample_contacts.txt`** (50 contacts) from the
 - **Exact search, head to head** — every query runs through
   - iterative binary search,
   - recursive binary search,
+  - interpolation search,
   - exponential search,
   - jump search,
   - linear search,
@@ -76,8 +77,11 @@ To try it with real names, load **`sample_contacts.txt`** (50 contacts) from the
 - **Probe trace** — the web UI animates each binary-search probe: the shrinking `[low, high]` window, the `mid` element, and the direction taken.
 - **Autocomplete** — `lower_bound` finds where a prefix would start, then walks forward while words still match: **O(log n + k)**.
 - **Add / delete in order** — `bisect.insort` for inserts; deletes locate the target with binary search first, so the list is always sorted.
-- **Benchmark** — searches the *last* element (linear search's worst case) at n = 1K … 5M and plots linear, jump, exponential and binary search on a log–log chart (comparisons or time).
-- **Tests** — 24 stdlib `unittest` cases cover every algorithm (including a fuzz test against Python's own `in`), the data layer, the benchmark and the HTTP API.
+- **Benchmark** — runs all five algorithms at n = 1K … 5M in three cases (**worst**: last element, **average**: random words that exist, **miss**: words that don't) and plots them on a log–log chart (comparisons or time).
+- **Measured growth** — fits a line to each curve on the log–log chart and shows the slope next to the theory (≈1.0 for linear, ≈0.5 for jump, close to 0 for the logarithmic ones).
+- **Is sorting worth it?** — times sorting a shuffled copy of the list and works out how many searches it takes before "sort once + binary search" beats "linear search every time".
+- **CSV export** — download the benchmark results for your report.
+- **Tests** — 27 stdlib `unittest` cases cover every algorithm (including a fuzz test against Python's own `in`), the data layer, the benchmark and the HTTP API.
 - **Theory** — Master Method walkthrough and an interactive "halve it yourself" slider.
 
 ---
@@ -136,12 +140,12 @@ daa-project/
 | `GET`  | `/api/state` | dataset summary |
 | `POST` | `/api/generate` | `data.generate_data` |
 | `POST` | `/api/load` | `data.load_data` (upload is written to a temp file first, so the team's own error messages are shown) |
-| `POST` | `/api/search` | `binary_search`, `binary_search_recursive`, `exponential_search`, `jump_search`, `linear_search`, `first_occurrence`, `benchmark.time_search` |
+| `POST` | `/api/search` | `binary_search`, `binary_search_recursive`, `interpolation_search`, `exponential_search`, `jump_search`, `linear_search`, `first_occurrence`, `benchmark.time_search` |
 | `POST` | `/api/prefix` | `search.prefix_search`, `search.lower_bound` |
 | `POST` | `/api/add` | `data.add_entry` |
 | `POST` | `/api/delete` | `data.delete_entry` |
 | `GET`  | `/api/browse` | paged view of the list; `?q=` jumps via `lower_bound` |
-| `POST` | `/api/benchmark` | `benchmark.run_benchmark` |
+| `POST` | `/api/benchmark` | `benchmark.run_benchmark` (`{"sizes": [...], "case": "worst" \| "average" \| "miss"}`) |
 
 The only algorithm code in `server.py` is `binary_search_trace`, which replays the *exact* loop of `binary_search` while recording each probe so the UI can draw it. Every request asserts that its step count equals `binary_search`'s, so the visual can never drift from the real algorithm.
 
@@ -163,6 +167,18 @@ Hop forward in blocks of `⌊√n⌋` until the block's last element is `>= key`
 
 ### Exponential search — `exponential_search(arr, key)`
 Check index 0, then 1, 2, 4, 8, … until `arr[bound] >= key`, then binary search inside `[bound/2, bound]`. If the key is at position *i* this costs **O(log i)**, so it beats plain binary search for keys near the front and is never worse than O(log n) (about 2·log₂ n in the worst case). It's the standard choice for unbounded or very large lists.
+
+### Interpolation search — `interpolation_search(arr, key)`
+Instead of always probing the middle, guess where the key *should* be from its value, the way you'd open a dictionary near the back for "wolf":
+
+```
+mid = low + (key − arr[low]) · (high − low) / (arr[high] − arr[low])
+```
+
+Words are turned into numbers by `_rank()`, which reads the first 8 letters as a base-28 fraction ("a…" ≈ 0, "z…" ≈ 1). On uniformly spread data, which is what our random words are, this takes **O(log log n)** probes: about 6 at n = 1,000,000, against binary search's 20. On skewed data it can fall back to **O(n)**. It's a good example of *fewer comparisons ≠ faster*: each probe also has to compute `_rank()`, so in Python it is often slower in wall-clock time than binary search.
+
+### Is sorting worth it?
+Every algorithm except linear search needs sorted data. Sorting costs O(n log n) once, and each binary search then saves about n/2 comparisons (average case), so sorting pays for itself after roughly `n log₂ n / (n/2) = 2 log₂ n` searches (about 40 for n = 1,000,000). The benchmark measures this for real; in practice Python's sort runs in C, so it pays off even sooner (about 10 searches at n = 1M).
 
 ### Lower bound — `lower_bound(arr, prefix)`
 Binary search for the **first index `i` with `arr[i] >= prefix`**. Returns `len(arr)` if every element is smaller. It's the building block for both prefix search and duplicate handling.
@@ -191,6 +207,7 @@ With duplicates, plain binary search may land on any copy. `lower_bound` always 
 |---|---|---|---|---|
 | Binary search (iterative) | O(1) | O(log n) | O(log n) | O(1) |
 | Binary search (recursive) | O(1) | O(log n) | O(log n) | O(log n) call stack |
+| Interpolation search | O(1) | O(log log n) (uniform data) | O(n) | O(1) |
 | Exponential search | O(1) | O(log i) | O(log n) | O(1) |
 | Jump search (block √n) | O(1) | O(√n) | O(√n) | O(1) |
 | Linear search | O(1) | O(n) | O(n) | O(1) |
@@ -224,6 +241,8 @@ Intuition: each comparison halves the remaining range, so after *k* comparisons 
 
 Searching the last element (worst case for linear search), seed 42. Times vary by machine; comparison counts don't.
 
+**Worst case** (last element):
+
 | n | Linear steps | Jump steps | Exp steps | Binary steps | log₂ n | Linear ÷ binary |
 |---:|---:|---:|---:|---:|---:|---:|
 | 1,000 | 1,000 | 41 | 20 | 10 | 9.97 | 100× |
@@ -232,6 +251,16 @@ Searching the last element (worst case for linear search), seed 42. Times vary b
 | 1,000,000 | 1,000,000 | 2,000 | 40 | 20 | 19.93 | 50,000× |
 
 Linear steps grow 10× each time n grows 10×; jump steps grow about 3.2× (= √10); binary steps grow by about **3.3** (= log₂ 10) — added, not multiplied. Exponential search pays roughly double binary search here because the last element is its worst case.
+
+**Average case** (random words that exist; comparisons per search):
+
+| n | Linear | Jump | Exp | Binary | Interp | Sort time | Sort pays off after |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1,000 | 451.9 | 25.9 | 17.5 | 9.0 | 3.1 | 0.2 ms | ~7 searches |
+| 100,000 | 60,209.5 | 318.5 | 31.6 | 16.0 | 4.4 | 49 ms | ~6 searches |
+| 1,000,000 | 443,234.1 | 927.9 | 36.4 | 19.4 | 6.0 | 880 ms | ~10 searches |
+
+Measured log–log slopes for comparisons (1K → 1M): linear **1.01**, jump **0.52**, exponential 0.11, binary 0.11, interpolation 0.09, which matches O(n), O(√n) and the logarithmic bounds.
 
 ---
 
@@ -245,7 +274,7 @@ Run `python server.py` and use the left sidebar (or the bottom tab bar on phones
 | **2 · Exact search** | Search a word or press **Random hit**. See found/not-found, index, first occurrence or insertion point, comparisons for all five algorithms drawn to scale, the animated probe trace and the sorted neighbourhood. |
 | **3 · Autocomplete** | Type a prefix; matches update live. Shows lower-bound probes vs forward-walk steps. Use ↑ ↓ and Enter to send a match to Exact search. |
 | **4 · Add & delete** | Insert or delete an entry and see exactly where it lands or where it was removed. A session log keeps track of changes. |
-| **5 · Benchmark** | Choose sizes, run, and watch the log–log chart fill in one size at a time. Hover for exact values; switch between *Comparisons* and *Time*. |
+| **5 · Benchmark** | Choose sizes and a case (worst / average / miss), run, and watch the log–log chart fill in one size at a time. Hover for exact values; switch between *Comparisons* and *Time*. Below the table: measured growth slopes, the sort break-even, and **Export CSV**. |
 | **6 · Theory** | Step-by-step Master Method proof, complexity table and a slider that halves n until it reaches 1. |
 
 **Keyboard shortcuts**
@@ -270,7 +299,7 @@ Run `python server.py` and use the left sidebar (or the bottom tab bar on phones
 ========== SMART CONTACT / DICTIONARY SEARCH ==========
 1. Load data from file
 2. Generate random data (n)
-3. Exact search (binary vs jump vs exponential vs linear)
+3. Exact search (compare 6 algorithms)
 4. Prefix search (autocomplete)
 5. Add entry
 6. Delete entry
@@ -292,13 +321,14 @@ FOUND 'gofip' at index 25000 (first occurrence: 25000).
 Binary (iterative): 16 steps, 0.00190 ms
 Binary (recursive): 16 steps
 Exponential       : 28 steps, 0.00410 ms
+Interpolation     : 5 steps, 0.01990 ms
 Jump (block 316)  : 117 steps, 0.03100 ms
 Linear            : 25001 steps, 1.94000 ms
 ```
 
 *(Option 2 asks for an optional seed; use 42 to get the same list as the web app's examples. Timings vary by machine.)*
 
-Option 7 prints the benchmark table and can show a matplotlib graph if it's installed (`pip install matplotlib`).
+Option 7 asks for a case (worst / average / miss), prints the benchmark table and can show a matplotlib graph if it's installed (`pip install matplotlib`).
 
 ---
 
@@ -324,7 +354,7 @@ Option 7 prints the benchmark table and can show a matplotlib graph if it's inst
 
 | Member | Module | Responsibility |
 |---|---|---|
-| Member 1 | `search.py` | Binary (iterative + recursive), jump, exponential, linear, lower bound, prefix search, first occurrence |
+| Member 1 | `search.py` | Binary (iterative + recursive), jump, exponential, interpolation, linear, lower bound, prefix search, first occurrence |
 | Member 2 | `data.py` | Loading, generating, cleaning, add / delete |
 | Member 3 | `benchmark.py` | Timing, comparison counts, results table, plot |
 | Member 4 | `main.py` | Menu-driven CLI and input validation |

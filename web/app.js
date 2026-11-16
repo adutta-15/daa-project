@@ -316,7 +316,7 @@
   function renderSearch(r) {
     const ratio = r.linear.steps / Math.max(1, r.binary.steps);
     const timeRatio = r.linear.ms / Math.max(1e-9, r.binary.ms);
-    const maxSteps = Math.max(r.linear.steps, r.binary.steps, r.jump.steps, r.exponential.steps);
+    const maxSteps = Math.max(r.linear.steps, r.binary.steps, r.jump.steps, r.exponential.steps, r.interpolation.steps);
     const pct = (v) => Math.max(0.25, (v / maxSteps) * 100);
 
     const verdict = r.found
@@ -374,6 +374,11 @@
           <div class="race-sub">${fmtMs(r.exponential.ms)} · O(log i), i = position</div>
         </div>
         <div class="race-cell">
+          <div class="race-k"><i class="sw sw-interp"></i>Interpolation · guess the position</div>
+          <div class="race-big">${fmt(r.interpolation.steps)}<small>comparisons</small></div>
+          <div class="race-sub">${fmtMs(r.interpolation.ms)} · O(log log n) on uniform data</div>
+        </div>
+        <div class="race-cell">
           <div class="race-k"><i class="sw sw-jump"></i>Jump · blocks of √n = ${fmt(r.jump.block)}</div>
           <div class="race-big">${fmt(r.jump.steps)}<small>comparisons</small></div>
           <div class="race-sub">${fmtMs(r.jump.ms)} · O(√n)</div>
@@ -382,6 +387,7 @@
 
       <div class="scale-compare" aria-label="Comparisons drawn to scale">
         <div class="sc-row"><span>Binary</span><div class="sc-track"><div class="sc-fill fill-binary" style="width:${pct(r.binary.steps)}%"></div></div><span>${fmt(r.binary.steps)}</span></div>
+        <div class="sc-row"><span>Interpolation</span><div class="sc-track"><div class="sc-fill" style="background:var(--interp);width:${pct(r.interpolation.steps)}%"></div></div><span>${fmt(r.interpolation.steps)}</span></div>
         <div class="sc-row"><span>Exponential</span><div class="sc-track"><div class="sc-fill" style="background:var(--exp);width:${pct(r.exponential.steps)}%"></div></div><span>${fmt(r.exponential.steps)}</span></div>
         <div class="sc-row"><span>Jump</span><div class="sc-track"><div class="sc-fill" style="background:var(--jump);width:${pct(r.jump.steps)}%"></div></div><span>${fmt(r.jump.steps)}</span></div>
         <div class="sc-row"><span>Linear</span><div class="sc-track"><div class="sc-fill" style="background:var(--linear);width:${pct(r.linear.steps)}%"></div></div><span>${fmt(r.linear.steps)}</span></div>
@@ -536,7 +542,23 @@
   /* =========================================================================
      BENCHMARK
      ========================================================================= */
-  const bench = { results: [], metric: "steps", running: false };
+  const bench = { results: [], metric: "steps", case: "worst", running: false };
+  const CASE_TEXT = {
+    worst: "search its <em>last</em> element — linear search's worst case",
+    average: "search random words that <em>are</em> in the list — the average case",
+    miss: "search random words that are <em>not</em> in the list — every algorithm has to rule them out",
+  };
+  const SERIES = ["linear", "jump", "exp", "binary", "interp"];
+  const NAMES = { linear: "Linear", jump: "Jump", exp: "Exponential", binary: "Binary", interp: "Interpolation" };
+  const SHORT = { linear: "Linear", jump: "Jump", exp: "Exp", binary: "Binary", interp: "Interp" };
+  const THEORY = { linear: "n", jump: "√n", exp: "log n", binary: "log n", interp: "log log n" };
+
+  $$("#caseSeg .seg-btn").forEach((b) => b.addEventListener("click", () => {
+    if (bench.running) return;
+    $$("#caseSeg .seg-btn").forEach((x) => { const on = x === b; x.classList.toggle("is-on", on); x.setAttribute("aria-selected", on); });
+    bench.case = b.dataset.case;
+    $("#caseText").innerHTML = CASE_TEXT[bench.case];
+  }));
 
   $$("#benchSizes .chip").forEach((c) => c.addEventListener("click", () => {
     if (bench.running) return;
@@ -547,7 +569,7 @@
   $$("#metricSeg .seg-btn").forEach((b) => b.addEventListener("click", () => {
     $$("#metricSeg .seg-btn").forEach((x) => { const on = x === b; x.classList.toggle("is-on", on); x.setAttribute("aria-selected", on); });
     bench.metric = b.dataset.metric;
-    if (bench.results.length) drawChart(false);
+    if (bench.results.length) { drawChart(false); renderInsights(); }
   }));
 
   $("#benchBtn").addEventListener("click", () => {
@@ -562,7 +584,7 @@
         for (let i = 0; i < sizes.length; i++) {
           $("#benchBtn .btn-label").textContent = `Running n = ${fmtShort(sizes[i])}…`;
           prog.firstElementChild.style.width = ((i + 0.35) / sizes.length) * 100 + "%";
-          const d = await api("/api/benchmark", { sizes: [sizes[i]] });
+          const d = await api("/api/benchmark", { sizes: [sizes[i]], case: bench.case });
           bench.results.push(d.results[0]);
           prog.firstElementChild.style.width = ((i + 1) / sizes.length) * 100 + "%";
           renderTable(d.results[0].n); drawChart();
@@ -573,6 +595,7 @@
         bench.running = false;
         $("#benchBtn .btn-label").textContent = "Run again";
         $$("#benchSizes .chip").forEach((c) => (c.disabled = false));
+        $("#csvBtn").disabled = !bench.results.length;
         setTimeout(() => (prog.hidden = true), 700);
       }
     });
@@ -580,12 +603,55 @@
 
   function renderTable(newN) {
     const tb = $("#benchTable tbody");
-    if (!bench.results.length) { tb.innerHTML = `<tr class="t-empty"><td colspan="10">${bench.running ? "Running…" : "Results will appear here."}</td></tr>`; return; }
+    renderInsights();
+    if (!bench.results.length) { tb.innerHTML = `<tr class="t-empty"><td colspan="12">${bench.running ? "Running…" : "Results will appear here."}</td></tr>`; return; }
     tb.innerHTML = bench.results.map((r) => `<tr class="${r.n === newN ? "is-new" : ""}">
-      <td>${fmt(r.n)}</td><td>${fmt(r.linear_steps)}</td><td>${fmt(r.jump_steps)}</td><td>${r.exp_steps}</td><td>${r.binary_steps}</td><td>${r.log2n.toFixed(2)}</td>
-      <td>${(r.linear_time * 1000).toFixed(4)}</td><td>${(r.jump_time * 1000).toFixed(4)}</td><td>${(r.binary_time * 1000).toFixed(5)}</td>
-      <td class="speed">${fmt(Math.round(r.linear_steps / r.binary_steps))}×</td></tr>`).join("");
+      <td>${fmt(r.n)}</td>${SERIES.map((s) => `<td>${fmt(r[s + "_steps"])}</td>`).join("")}<td>${r.log2n.toFixed(2)}</td>
+      <td>${(r.linear_time * 1000).toFixed(4)}</td><td>${(r.binary_time * 1000).toFixed(5)}</td>
+      <td>${fmtMs(r.sort_time * 1000)}</td>
+      <td class="speed">${r.break_even_time ? fmt(r.break_even_time) + " searches" : "—"}</td>
+      <td class="speed">${fmt(Math.round(r.linear_steps / Math.max(1, r.binary_steps)))}×</td></tr>`).join("");
   }
+
+  /* Least-squares slope of log(y) against log(n): the measured exponent k in y ≈ c·n^k.
+     About 1 for O(n), 0.5 for O(√n), close to 0 for anything logarithmic. */
+  function slope(s) {
+    const pts = bench.results.map((r) => [Math.log(r.n), Math.log(Math.max(1e-12, bench.metric === "time" ? r[s + "_time"] : r[s + "_steps"]))]);
+    if (pts.length < 2) return null;
+    const mx = pts.reduce((a, p) => a + p[0], 0) / pts.length, my = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    const num = pts.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0), den = pts.reduce((a, p) => a + (p[0] - mx) ** 2, 0);
+    return den ? num / den : null;
+  }
+
+  function renderInsights() {
+    const box = $("#benchInsights");
+    const rs = bench.results;
+    if (!rs.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const last = rs[rs.length - 1];
+    $("#slopesPanel").hidden = rs.length < 2;
+    $("#slopes").innerHTML = SERIES.map((s) => {
+      const k = slope(s);
+      return `<li><i class="sw sw-${s}"></i><span>${NAMES[s]}</span><b class="mono">n<sup>${k == null ? "—" : k.toFixed(2)}</sup></b><span class="muted small">theory: ${THEORY[s]}</span></li>`;
+    }).join("");
+    $("#slopeWhat").textContent = bench.metric === "time" ? "time" : "comparisons";
+    $("#breakEven").innerHTML = last.break_even_time
+      ? `Sorting ${fmt(last.n)} shuffled words took <b class="mono">${fmtMs(last.sort_time * 1000)}</b>. Each binary search instead of a linear scan saves
+         <b class="mono">${fmtMs((last.linear_time - last.binary_time) * 1000)}</b>, so sorting first pays for itself after
+         <b class="mono accent-ink">${fmt(last.break_even_time)}</b> searches. Counting comparisons instead (n log₂ n to sort), it's ${fmt(last.break_even_steps)}.`
+      : "";
+  }
+
+  $("#csvBtn").addEventListener("click", () => {
+    if (!bench.results.length) return;
+    const cols = ["case", "n", "keys", "log2n", ...SERIES.flatMap((s) => [s + "_steps", s + "_time"]), "sort_time", "break_even_steps", "break_even_time"];
+    const csv = [cols.join(","), ...bench.results.map((r) => cols.map((c) => r[c] ?? "").join(","))].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `bisect-benchmark-${bench.results[0].case}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
 
   function niceLogDomain(vals) {
     const lo = Math.min(...vals), hi = Math.max(...vals);
@@ -613,8 +679,6 @@
 
     const xs = rs.map((r) => r.n);
     const [x0, x1] = rs.length === 1 ? [xs[0] / 10, xs[0] * 10] : niceLogDomain(xs);
-    const SERIES = ["linear", "jump", "exp", "binary"];
-    const NAMES = { linear: "Linear", jump: "Jump", exp: "Exp", binary: "Binary" };
     const ys = rs.flatMap((r) => SERIES.map((s) => get(r, s))).filter((v) => v > 0);
     const [y0, y1] = niceLogDomain(ys);
     const X = (v) => m.l + ((Math.log10(v) - Math.log10(x0)) / (Math.log10(x1) - Math.log10(x0))) * iw;
@@ -631,11 +695,11 @@
       const d = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join("");
       const last = pts[pts.length - 1], lastR = rs[rs.length - 1];
       // Binary and exponential sit close together; nudge labels apart.
-      const dy = s === "exp" ? (isTime ? -8 : -10) : s === "binary" ? 10 : 0;
+      const dy = s === "exp" ? -10 : s === "binary" ? 4 : s === "interp" ? 14 : 0;
       return `<g class="series s-${s}">
-        <path d="${d}" class="${animate && s !== "exp" ? "line-draw" : ""}" />
+        <path d="${d}" class="${animate && s !== "exp" && s !== "interp" ? "line-draw" : ""}" />
         ${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" />`).join("")}
-        <text class="dlabel" x="${last[0] + 10}" y="${last[1] + 4 + dy}">${NAMES[s]} ${isTime ? fmtMs(get(lastR, s)) : fmt(get(lastR, s))}</text>
+        <text class="dlabel" x="${last[0] + 10}" y="${last[1] + 4 + dy}">${SHORT[s]} ${isTime ? fmtMs(get(lastR, s)) : fmt(get(lastR, s))}</text>
       </g>`;
     }).join("");
 
@@ -667,9 +731,7 @@
       cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
       tipEl.innerHTML = `<h4>n = ${fmt(r.n)}</h4>
         <div><span><i class="sw sw-binary"></i>Binary</span><span>${r.binary_steps} cmp · ${fmtMs(r.binary_time * 1000)}</span></div>
-        <div><span><i class="sw sw-exp"></i>Exponential</span><span>${r.exp_steps} cmp · ${fmtMs(r.exp_time * 1000)}</span></div>
-        <div><span><i class="sw sw-jump"></i>Jump</span><span>${fmt(r.jump_steps)} cmp · ${fmtMs(r.jump_time * 1000)}</span></div>
-        <div><span><i class="sw sw-linear"></i>Linear</span><span>${fmt(r.linear_steps)} cmp · ${fmtMs(r.linear_time * 1000)}</span></div>
+        ${["interp", "exp", "jump", "linear"].map((s) => `<div><span><i class="sw sw-${s}"></i>${NAMES[s]}</span><span>${fmt(r[s + "_steps"])} cmp · ${fmtMs(r[s + "_time"] * 1000)}</span></div>`).join("")}
         <div><span>Ratio</span><span>${fmt(Math.round(r.linear_steps / r.binary_steps))}× fewer</span></div>`;
       const sx = (cx / W) * host.clientWidth;
       tipEl.style.left = Math.max(100, Math.min(sx, host.clientWidth - 100)) + "px";

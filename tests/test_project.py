@@ -21,11 +21,12 @@ import benchmark  # noqa: E402
 import data  # noqa: E402
 import server  # noqa: E402
 from search import (binary_search, binary_search_recursive,  # noqa: E402
-                    exponential_search, first_occurrence, jump_search,
-                    linear_search, lower_bound, prefix_search)
+                    exponential_search, first_occurrence,
+                    interpolation_search, jump_search, linear_search,
+                    lower_bound, prefix_search)
 
 EXACT = [binary_search, binary_search_recursive, linear_search,
-         jump_search, exponential_search]
+         jump_search, exponential_search, interpolation_search]
 
 
 class ExactSearchTests(unittest.TestCase):
@@ -85,6 +86,19 @@ class ExactSearchTests(unittest.TestCase):
         _, back = exponential_search(arr, arr[-1])
         self.assertLess(front, 10)
         self.assertLessEqual(back, 2 * (math.floor(math.log2(len(arr))) + 2))
+
+    def test_interpolation_fast_on_uniform_data(self):
+        arr = data.generate_data(200_000, seed=5)
+        rng = random.Random(2)
+        keys = [arr[rng.randrange(len(arr))] for _ in range(300)]
+        avg = sum(interpolation_search(arr, k)[1] for k in keys) / len(keys)
+        self.assertLess(avg, 10)   # binary search needs about 17 here
+
+    def test_interpolation_handles_odd_characters(self):
+        arr = sorted(["", " ", "a b", "a", "zz{", "~x", "z", "émile", "0"])
+        for i, v in enumerate(arr):
+            self.assertEqual(arr[interpolation_search(arr, v)[0]], v)
+        self.assertEqual(interpolation_search(arr, "q")[0], -1)
 
     def test_linear_counts_every_element(self):
         arr = ["a", "b", "c", "d"]
@@ -174,6 +188,20 @@ class DataTests(unittest.TestCase):
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_cases(self):
+        for case in benchmark.CASES:
+            (r,) = benchmark.run_benchmark(sizes=(5000,), case=case)
+            self.assertEqual(r["case"], case)
+            self.assertLess(r["binary_steps"], r["jump_steps"])
+            self.assertLess(r["interp_steps"], r["binary_steps"])
+            self.assertGreater(r["break_even_time"], 0)
+            self.assertGreater(r["break_even_steps"], 0)
+        (miss,) = benchmark.run_benchmark(sizes=(5000,), case="miss", with_sort=False)
+        self.assertEqual(miss["linear_steps"], 5000)       # a miss scans everything
+        self.assertNotIn("sort_time", miss)
+        with self.assertRaises(ValueError):
+            benchmark.run_benchmark(sizes=(10,), case="best")
+
     def test_run_benchmark(self):
         rows = benchmark.run_benchmark(sizes=(1000, 10_000))
         self.assertEqual([r["n"] for r in rows], [1000, 10_000])
@@ -182,7 +210,7 @@ class BenchmarkTests(unittest.TestCase):
             self.assertLessEqual(r["binary_steps"], math.floor(math.log2(r["n"])) + 1)
             self.assertLess(r["binary_steps"], r["jump_steps"])
             self.assertLess(r["jump_steps"], r["linear_steps"])
-        self.assertIn("Jump steps", benchmark.format_table(rows))
+        self.assertIn("Sort pays off after", benchmark.format_table(rows))
 
 
 class ServerApiTests(unittest.TestCase):
@@ -220,7 +248,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(r["found"])
         self.assertEqual(r["binary"]["steps"], len(r["binary"]["trace"]))
-        for algo in ("jump", "exponential", "linear", "recursive"):
+        for algo in ("jump", "exponential", "interpolation", "linear", "recursive"):
             self.assertIn("steps", r[algo])
 
         status, r = self.call("/api/search", {"key": "0000"})
@@ -247,6 +275,9 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(self.call("/api/search", {"key": "   "})[0], 400)
         self.assertEqual(self.call("/api/search", {"key": 123})[0], 400)
         self.assertEqual(self.call("/api/benchmark", {"sizes": [0]})[0], 400)
+        self.assertEqual(self.call("/api/benchmark", {"sizes": [10], "case": "x"})[0], 400)
+        status, b = self.call("/api/benchmark", {"sizes": [1000], "case": "average"})
+        self.assertEqual((status, b["results"][0]["case"]), (200, "average"))
         self.assertEqual(self.call("/api/nope", {})[0], 404)
 
     def test_load_rejects_binary_upload(self):

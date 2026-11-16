@@ -41,6 +41,7 @@
   --walk: #B98A2C;
   --jump: #2E8B6E;
   --exp: #8A5BB5;
+  --interp: #B98A2C;
   --ok: #2F7D4F; --ok-soft: #E2F1E7;
   --bad: #B4232C; --bad-soft: #F8E1E2;
   --focus: #D9480F;
@@ -66,6 +67,7 @@
   --walk: #CFA040;
   --jump: #4CB592;
   --exp: #A982D6;
+  --interp: #CFA040;
   --ok: #4CB27A; --ok-soft: #13291D;
   --bad: #E5545C; --bad-soft: #351417;
   --focus: #FF8A5C;
@@ -408,7 +410,8 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
 .sw-walk { background: var(--walk); }
 .sw-jump { background: var(--jump); }
 .sw-exp { background: var(--exp); }
-.race-2 { grid-template-columns: repeat(2, 1fr); margin-top: var(--s3); box-shadow: none; }
+.sw-interp { background: var(--interp); }
+.race-2 { grid-template-columns: repeat(3, 1fr); margin-top: var(--s3); box-shadow: none; }
 .race-2 .race-big { font-size: 1.6rem; }
 
 .scale-compare { margin: var(--s6) 0 var(--s10); }
@@ -513,6 +516,14 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
 @keyframes indet { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
 
 .chart-panel { padding: var(--s5) var(--s6) var(--s4); margin-bottom: var(--s6); }
+.table-note { margin-top: var(--s2); }
+.insights { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s5); margin-top: var(--s6); }
+.insights .panel { margin: 0; }
+.slopes { list-style: none; padding: 0; margin: var(--s3) 0 0; display: grid; gap: var(--s2); }
+.slopes li { display: grid; grid-template-columns: 14px 1fr auto 120px; align-items: center; gap: var(--s2); font-size: var(--t-sm); }
+.slopes li b { font-size: var(--t-md); }
+.slopes li .muted { text-align: right; white-space: nowrap; }
+.break-even { line-height: 1.6; margin-top: var(--s3); }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s5); font-size: var(--t-sm); color: var(--ink-2); margin-bottom: var(--s3); }
 .lg { display: inline-flex; align-items: center; gap: 4px; }
 .lg-note { margin-left: auto; }
@@ -526,6 +537,7 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
 .chart .s-binary path { stroke: var(--binary); } .chart .s-binary circle { fill: var(--binary); }
 .chart .s-linear path { stroke: var(--linear); } .chart .s-linear circle { fill: var(--linear); }
 .chart .s-jump path { stroke: var(--jump); } .chart .s-jump circle { fill: var(--jump); }
+.chart .s-interp path { stroke: var(--interp); stroke-dasharray: 2 4; } .chart .s-interp circle { fill: var(--interp); }
 .chart .s-exp path { stroke: var(--exp); stroke-dasharray: 5 4; } .chart .s-exp circle { fill: var(--exp); }
 .chart .line-draw { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw .8s var(--ease-out) forwards; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
@@ -665,6 +677,7 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
   .probe-meta { display: none; }
   .sc-row { grid-template-columns: 84px 1fr 72px; }
   .toolbar .btn { margin-left: 0; width: 100%; }
+  .insights { grid-template-columns: 1fr; }
   .chart { height: 280px; }
   .input-sm { width: 130px; }
   .tabbar {

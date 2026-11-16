@@ -27,12 +27,12 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from benchmark import run_benchmark, time_search
+from benchmark import CASES, run_benchmark, time_search
 from data import (add_entry, clean_input, delete_entry, generate_data,
                   is_sorted, load_data)
 from search import (binary_search, binary_search_recursive, exponential_search,
-                    first_occurrence, jump_search, linear_search, lower_bound,
-                    prefix_search)
+                    first_occurrence, interpolation_search, jump_search,
+                    linear_search, lower_bound, prefix_search)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(ROOT, "web")
@@ -199,6 +199,7 @@ def api_search(body):
         lt, lc = time_search(linear_search, arr, key)
         jt, jc = time_search(jump_search, arr, key, repeats=10)
         et, ec = time_search(exponential_search, arr, key, repeats=100)
+        it, ic = time_search(interpolation_search, arr, key, repeats=100)
         idx, _ = binary_search(arr, key)
         ridx, rc = binary_search_recursive(arr, key)
         tidx, trace = binary_search_trace(arr, key)
@@ -221,6 +222,7 @@ def api_search(body):
             "jump": {"steps": jc, "ms": jt * 1000,
                      "block": max(1, math.isqrt(len(arr)))},
             "exponential": {"steps": ec, "ms": et * 1000},
+            "interpolation": {"steps": ic, "ms": it * 1000},
             "log2n": math.log2(len(arr)),
             "neighbours": neighbourhood(arr, centre),
             "resorted": resorted,
@@ -315,8 +317,11 @@ def api_benchmark(body):
         return 400, {"error": "Sizes must be whole numbers."}
     if any(s < 1 or s > MAX_BENCH_N for s in sizes):
         return 400, {"error": f"Each size must be between 1 and {MAX_BENCH_N:,}."}
+    case = body.get("case") or "worst"
+    if case not in CASES:
+        return 400, {"error": f"Case must be one of: {', '.join(CASES)}."}
     t0 = time.perf_counter()
-    results = run_benchmark(sizes=tuple(sizes))
+    results = run_benchmark(sizes=tuple(sizes), case=case)
     return 200, {"results": results, "elapsed": time.perf_counter() - t0}
 
 

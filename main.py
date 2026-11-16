@@ -5,18 +5,18 @@ Menu-driven CLI. Run:  python main.py
 """
 import math
 
-from benchmark import format_table, plot_results, run_benchmark, time_search
+from benchmark import CASES, format_table, plot_results, run_benchmark, time_search
 from data import (add_entry, clean_input, delete_entry, generate_data,
                   is_sorted, load_data)
 from search import (binary_search, binary_search_recursive, exponential_search,
-                    first_occurrence, jump_search, linear_search, lower_bound,
-                    prefix_search)
+                    first_occurrence, interpolation_search, jump_search,
+                    linear_search, lower_bound, prefix_search)
 
 MENU = """
 ========== SMART CONTACT / DICTIONARY SEARCH ==========
 1. Load data from file
 2. Generate random data (n)
-3. Exact search (binary vs jump vs exponential vs linear)
+3. Exact search (compare 6 algorithms)
 4. Prefix search (autocomplete)
 5. Add entry
 6. Delete entry
@@ -34,7 +34,12 @@ f(n) = Theta(n^(log_b a))  ->  Case 2  ->  T(n) = Theta(log n)
 Binary      O(1)    O(log n)   O(log n)   O(1) iterative / O(log n) recursive
 Jump        O(1)    O(sqrt n)  O(sqrt n)  O(1)      (block size = sqrt n)
 Exponential O(1)    O(log i)   O(log n)   O(1)      (i = position of the key)
+Interpol.   O(1)    O(log log n) O(n)     O(1)      (uniform data; guesses position)
 Linear      O(1)    O(n)       O(n)       O(1)
+
+Is sorting worth it?  Sorting costs O(n log n) once; each binary search then
+saves about n/2 comparisons, so sorting pays off after roughly
+n log n / (n/2) = 2 log2 n searches (about 40 for n = 1,000,000).
 Prefix      O(log n + k) where k = number of matches
 """
 
@@ -70,6 +75,7 @@ def do_exact_search(arr):
     lt, lc = time_search(linear_search, arr, key)
     jt, jc = time_search(jump_search, arr, key, repeats=10)
     et, ec = time_search(exponential_search, arr, key, repeats=100)
+    it, ic = time_search(interpolation_search, arr, key, repeats=100)
     idx, _ = binary_search(arr, key)
     _, rc = binary_search_recursive(arr, key)
     if idx == -1:
@@ -81,6 +87,7 @@ def do_exact_search(arr):
     print(f"Binary (iterative): {bc} steps, {bt*1000:.5f} ms")
     print(f"Binary (recursive): {rc} steps")
     print(f"Exponential       : {ec} steps, {et*1000:.5f} ms")
+    print(f"Interpolation     : {ic} steps, {it*1000:.5f} ms")
     print(f"Jump (block {math.isqrt(len(arr))})".ljust(18) + f": {jc} steps, {jt*1000:.5f} ms")
     print(f"Linear            : {lc} steps, {lt*1000:.5f} ms")
 
@@ -133,8 +140,12 @@ def main():
                 ok, msg = delete_entry(arr, input("Entry to delete: "))
                 print(msg)
         elif choice == "7":
+            case = input("Case - worst / average / miss [worst]: ").strip().lower() or "worst"
+            if case not in CASES:
+                print("! Unknown case, using 'worst'.")
+                case = "worst"
             print("Running benchmark (takes a few seconds)...")
-            results = run_benchmark()
+            results = run_benchmark(case=case)
             print(format_table(results))
             if input("Show graph? (y/n): ").strip().lower() == "y":
                 print(plot_results(results)[1])
