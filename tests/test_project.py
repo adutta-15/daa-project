@@ -159,6 +159,36 @@ class DataTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("not found", msg)
 
+    def test_uniform_data_unchanged(self):
+        # README examples rely on seed 42 giving this exact list.
+        arr = data.generate_data(100_000, seed=42)
+        self.assertEqual(arr[25_000], "gofip")
+        self.assertEqual(arr, data.generate_data(100_000, seed=42, distribution="uniform"))
+
+    def test_distributions(self):
+        n = 20_000
+        for dist in data.DISTRIBUTIONS:
+            arr = data.generate_data(n, seed=1, distribution=dist)
+            self.assertEqual(len(arr), n)
+            self.assertTrue(data.is_sorted(arr), dist)
+            self.assertTrue(all(w.isalpha() and w.islower() for w in arr), dist)
+        clustered = data.generate_data(n, seed=1, distribution="clustered")
+        self.assertGreater(sum(w[0] == "s" for w in clustered) / n, 0.9)
+        skewed = data.generate_data(n, seed=1, distribution="skewed")
+        self.assertGreater(sum(w[0] == "a" for w in skewed), 10 * sum(w[0] == "z" for w in skewed))
+        with self.assertRaises(ValueError):
+            data.generate_data(10, distribution="normal")
+
+    def test_exponential_data_is_interpolation_worst_case(self):
+        arr = data.generate_data(100_000, seed=3, distribution="exponential")
+        rng = random.Random(4)
+        keys = [arr[rng.randrange(len(arr))] for _ in range(40)]
+        interp = sum(interpolation_search(arr, k)[1] for k in keys) / len(keys)
+        binary = sum(binary_search(arr, k)[1] for k in keys) / len(keys)
+        self.assertGreater(interp, 20 * binary)
+        for k in keys:   # slow, but still correct
+            self.assertEqual(arr[interpolation_search(arr, k)[0]], k)
+
     def _write(self, raw):
         fd, path = tempfile.mkstemp(suffix=".txt")
         with os.fdopen(fd, "wb") as f:
@@ -248,6 +278,10 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(r["found"])
         self.assertEqual(r["binary"]["steps"], len(r["binary"]["trace"]))
+        for p in r["binary"]["trace"]:   # the step-through view needs these
+            self.assertLessEqual(p["low_v"], p["value"])
+            self.assertLessEqual(p["value"], p["high_v"])
+        self.assertEqual(r["binary"]["trace"][-1]["cmp"], "eq")
         for algo in ("jump", "exponential", "interpolation", "linear", "recursive"):
             self.assertIn("steps", r[algo])
 
@@ -269,6 +303,10 @@ class ServerApiTests(unittest.TestCase):
         status, b = self.call("/api/browse?q=m&limit=5")
         self.assertEqual(len(b["rows"]), 5)
 
+        status, s = self.call("/api/generate", {"n": 500, "seed": 1, "distribution": "exponential"})
+        self.assertEqual(status, 200)
+        self.assertIn("exponential", s["label"])
+
     def test_bad_input_is_rejected_not_500(self):
         self.assertEqual(self.call("/api/generate", {"n": "abc"})[0], 400)
         self.assertEqual(self.call("/api/generate", {"n": 10, "seed": "x"})[0], 400)
@@ -278,6 +316,10 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(self.call("/api/benchmark", {"sizes": [10], "case": "x"})[0], 400)
         status, b = self.call("/api/benchmark", {"sizes": [1000], "case": "average"})
         self.assertEqual((status, b["results"][0]["case"]), (200, "average"))
+        self.assertEqual(self.call("/api/generate", {"n": 10, "distribution": "x"})[0], 400)
+        self.assertEqual(self.call("/api/benchmark", {"sizes": [10], "distribution": "x"})[0], 400)
+        status, b = self.call("/api/benchmark", {"sizes": [1000], "distribution": "skewed"})
+        self.assertEqual((status, b["results"][0]["distribution"]), (200, "skewed"))
         self.assertEqual(self.call("/api/nope", {})[0], 404)
 
     def test_load_rejects_binary_upload(self):

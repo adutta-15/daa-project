@@ -95,6 +95,16 @@
                   <button type="button" class="chip" data-n="5000000" data-tip="Takes ~10 s and ~500 MB RAM">5M</button>
                 </div>
                 <label class="field">
+                  <span class="field-l">Distribution</span>
+                  <select id="genDist" class="input select" aria-describedby="genDistHint">
+                    <option value="uniform">Uniform</option>
+                    <option value="skewed">Skewed (Zipf, like real names)</option>
+                    <option value="clustered">Clustered (95% start with “s”)</option>
+                    <option value="exponential">Exponential (interpolation's worst case)</option>
+                  </select>
+                  <span class="field-h" id="genDistHint">Every letter equally likely. Interpolation search's best case.</span>
+                </label>
+                <label class="field">
                   <span class="field-l">Seed <em>optional</em></span>
                   <input id="genSeed" class="input mono" inputmode="numeric" placeholder="e.g. 42 for a repeatable list" autocomplete="off" />
                 </label>
@@ -272,6 +282,12 @@
               <button type="button" class="chip" data-n="2000000"  aria-pressed="false">2M</button>
               <button type="button" class="chip" data-n="5000000"  aria-pressed="false" data-tip="Slow: ~15 s">5M</button>
             </div>
+            <select id="benchDist" class="input input-sm select" aria-label="Data distribution" data-tip="How the words are spread over the alphabet">
+              <option value="uniform">Uniform data</option>
+              <option value="skewed">Skewed data</option>
+              <option value="clustered">Clustered data</option>
+              <option value="exponential">Exponential data</option>
+            </select>
             <div class="seg seg-sm" role="tablist" aria-label="Case" id="caseSeg">
               <button role="tab" class="seg-btn is-on" aria-selected="true" data-case="worst" data-tip="Search the last element">Worst</button>
               <button role="tab" class="seg-btn" aria-selected="false" data-case="average" data-tip="Random words that exist">Average</button>
@@ -424,6 +440,7 @@
       <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Switch screen</dd>
       <dt><kbd>/</kbd></dt><dd>Focus the search box</dd>
       <dt><kbd>R</kbd></dt><dd>Search a random existing word</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd></dt><dd>Step / play binary search (Exact search screen)</dd>
       <dt><kbd>T</kbd></dt><dd>Toggle light / dark</dd>
       <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>↵</kbd></dt><dd>Pick an autocomplete match</dd>
       <dt><kbd>Esc</kbd></dt><dd>Close / leave a field</dd>

@@ -29,7 +29,7 @@ import random
 import string
 import time    # time.perf_counter() = high-precision stopwatch
 
-from data import generate_data                      # builds a sorted dataset
+from data import DISTRIBUTIONS, generate_data       # builds a sorted dataset
 from search import (binary_search, exponential_search, interpolation_search,
                     jump_search, linear_search)
 
@@ -63,17 +63,22 @@ def time_search(func, arr, key, repeats=1):
 
 
 # Like time_search, but over a list of keys.
+# Repeats up to `calls` searches, but stops early once `budget` seconds have
+# passed (interpolation search on skewed data can be very slow).
 # Returns (average time per search in seconds, average comparisons per search).
-def time_search_many(func, arr, keys, calls):
+def time_search_many(func, arr, keys, calls, budget=0.3):
     repeats = max(1, calls // len(keys))
     total_steps = 0
+    searches = 0
     start = time.perf_counter()
     for _ in range(repeats):
         for key in keys:
             _, comps = func(arr, key)
             total_steps += comps
+        searches += len(keys)
+        if time.perf_counter() - start > budget:
+            break
     elapsed = time.perf_counter() - start
-    searches = repeats * len(keys)
     return elapsed / searches, total_steps / searches
 
 
@@ -85,8 +90,9 @@ def pick_keys(arr, case, rng):
     count = 30 if n <= 100_000 else 8          # fewer keys for big n: linear search is slow
     if case == "average":
         return [arr[rng.randrange(n)] for _ in range(count)]
-    # "miss": generate_data makes words of 5-10 letters, so 11 letters never exist
-    return ["".join(rng.choices(string.ascii_lowercase, k=11)) for _ in range(count)]
+    # "miss": data only uses a-z, so a word ending in '{' can never be in the list
+    return ["".join(rng.choices(string.ascii_lowercase, k=rng.randint(5, 10))) + "{"
+            for _ in range(count)]
 
 
 # Times how long Python's sort (Timsort, O(n log n)) takes on a shuffled copy.
@@ -100,19 +106,23 @@ def time_sort(arr, rng):
 
 
 # Runs the benchmark for each dataset size.
-def run_benchmark(sizes=(1000, 10000, 100000, 1000000), case="worst", with_sort=True):
+def run_benchmark(sizes=(1000, 10000, 100000, 1000000), case="worst", with_sort=True,
+                  distribution="uniform"):
     """
-    For each n: generate data (seed 42), search keys for the chosen case,
-    return a list of result dicts.
+    For each n: generate data (seed 42) with the given distribution, search
+    keys for the chosen case, return a list of result dicts.
     """
     if case not in CASES:
         raise ValueError(f"case must be one of {CASES}")
+    if distribution not in DISTRIBUTIONS:
+        raise ValueError(f"distribution must be one of {list(DISTRIBUTIONS)}")
     results = []
     for n in sizes:
-        arr = generate_data(n, seed=42)        # same seed = same data every run, so results are repeatable
+        arr = generate_data(n, seed=42, distribution=distribution)   # same seed = same data every run, so results are repeatable
         rng = random.Random(n)
         keys = pick_keys(arr, case, rng)
-        row = {"n": n, "case": case, "keys": len(keys), "log2n": math.log2(n)}
+        row = {"n": n, "case": case, "distribution": distribution,
+               "keys": len(keys), "log2n": math.log2(n)}
         for name, (func, calls) in ALGORITHMS.items():
             t, steps = time_search_many(func, arr, keys, calls)
             row[f"{name}_time"] = t
@@ -145,7 +155,9 @@ def format_table(results):
     head = (f"{'n':>10} | {'Linear':>12} | {'Jump':>9} | {'Exp':>6} | "
             f"{'Binary':>6} | {'Interp':>6} | {'log2(n)':>7} | "
             f"{'Linear ms':>10} | {'Binary ms':>9} | {'Sort ms':>8} | {'Sort pays off after':>19}")
-    lines = [f"Comparisons per search ({results[0]['case'] if results else 'worst'} case)",
+    title = (f"{results[0]['case']} case, {results[0]['distribution']} data"
+             if results else "")
+    lines = [f"Comparisons per search ({title})",
              head, "-" * len(head)]
     for r in results:
         be = r.get("break_even_time")
@@ -174,7 +186,8 @@ def plot_results(results):
     plt.plot(ns, [r["interp_time"] * 1000 for r in results], "v:", label="Interpolation O(log log n)")
     plt.xlabel("n (dataset size)")
     plt.ylabel("time per search (ms)")
-    plt.title(f"Search algorithms: time vs n ({results[0]['case']} case)")
+    plt.title(f"Search algorithms: time vs n ({results[0]['case']} case, "
+              f"{results[0]['distribution']} data)")
     plt.xscale("log")
     plt.yscale("log")
     plt.legend()

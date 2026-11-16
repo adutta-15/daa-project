@@ -28,8 +28,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from benchmark import CASES, run_benchmark, time_search
-from data import (add_entry, clean_input, delete_entry, generate_data,
-                  is_sorted, load_data)
+from data import (DISTRIBUTIONS, add_entry, clean_input, delete_entry,
+                  generate_data, is_sorted, load_data)
 from search import (binary_search, binary_search_recursive, exponential_search,
                     first_occurrence, interpolation_search, jump_search,
                     linear_search, lower_bound, prefix_search)
@@ -101,15 +101,19 @@ def binary_search_trace(arr, key):
     while low <= high:
         mid = (low + high) // 2
         val = arr[mid]
+        probe = {"low": low, "mid": mid, "high": high, "value": val,
+                 "low_v": arr[low], "high_v": arr[high]}
         if val == key:
-            steps.append({"low": low, "mid": mid, "high": high, "value": val, "cmp": "eq"})
+            probe["cmp"] = "eq"
+            steps.append(probe)
             return mid, steps
         if val < key:
-            steps.append({"low": low, "mid": mid, "high": high, "value": val, "cmp": "lt"})
+            probe["cmp"] = "lt"
             low = mid + 1
         else:
-            steps.append({"low": low, "mid": mid, "high": high, "value": val, "cmp": "gt"})
+            probe["cmp"] = "gt"
             high = mid - 1
+        steps.append(probe)
     return -1, steps
 
 
@@ -141,13 +145,17 @@ def api_generate(body):
         seed = None if seed in (None, "") else int(str(seed).strip())
     except ValueError:
         return 400, {"error": "Seed must be a whole number."}
+    dist = body.get("distribution") or "uniform"
+    if dist not in DISTRIBUTIONS:
+        return 400, {"error": f"Distribution must be one of: {', '.join(DISTRIBUTIONS)}."}
     t0 = time.perf_counter()
-    arr = generate_data(n, seed=seed)
+    arr = generate_data(n, seed=seed, distribution=dist)
     elapsed = time.perf_counter() - t0
     with STATE.lock:
         STATE.arr = arr
         STATE.source = "generated"
-        STATE.label = f"Random · n = {n:,}" + (f" · seed {seed}" if seed is not None else "")
+        STATE.label = (f"Random · n = {n:,}" + ("" if dist == "uniform" else f" · {dist}")
+                       + (f" · seed {seed}" if seed is not None else ""))
         out = summary(arr)
     msg = f"Generated {n:,} sorted entries in {elapsed:.2f}s."
     if capped:
@@ -320,8 +328,11 @@ def api_benchmark(body):
     case = body.get("case") or "worst"
     if case not in CASES:
         return 400, {"error": f"Case must be one of: {', '.join(CASES)}."}
+    dist = body.get("distribution") or "uniform"
+    if dist not in DISTRIBUTIONS:
+        return 400, {"error": f"Distribution must be one of: {', '.join(DISTRIBUTIONS)}."}
     t0 = time.perf_counter()
-    results = run_benchmark(sizes=tuple(sizes), case=case)
+    results = run_benchmark(sizes=tuple(sizes), case=case, distribution=dist)
     return 200, {"results": results, "elapsed": time.perf_counter() - t0}
 
 

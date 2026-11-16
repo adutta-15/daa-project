@@ -6,8 +6,8 @@ Menu-driven CLI. Run:  python main.py
 import math
 
 from benchmark import CASES, format_table, plot_results, run_benchmark, time_search
-from data import (add_entry, clean_input, delete_entry, generate_data,
-                  is_sorted, load_data)
+from data import (DISTRIBUTIONS, add_entry, clean_input, delete_entry,
+                  generate_data, is_sorted, load_data)
 from search import (binary_search, binary_search_recursive, exponential_search,
                     first_occurrence, interpolation_search, jump_search,
                     linear_search, lower_bound, prefix_search)
@@ -54,6 +54,17 @@ def read_int(prompt, minimum=1):
             print(f"Enter a number >= {minimum}.")
         except ValueError:
             print("Invalid number, try again.")
+
+
+def read_distribution():
+    """Ask which data distribution to generate. Defaults to uniform."""
+    names = list(DISTRIBUTIONS)
+    for i, name in enumerate(names, 1):
+        print(f"  {i}. {name:<12} {DISTRIBUTIONS[name]}")
+    pick = input(f"Distribution (1-{len(names)}) [1]: ").strip()
+    if pick.isdigit() and 1 <= int(pick) <= len(names):
+        return names[int(pick) - 1]
+    return "uniform"
 
 
 def need_data(arr):
@@ -124,7 +135,7 @@ def main():
                 n = 5_000_000
             seed_txt = input("Seed (blank = random): ").strip()
             seed = int(seed_txt) if seed_txt.lstrip("-").isdigit() else None
-            arr = generate_data(n, seed=seed)
+            arr = generate_data(n, seed=seed, distribution=read_distribution())
             print(f"Generated {len(arr):,} sorted entries. Sample: {arr[:3]}")
         elif choice == "3":
             if need_data(arr):
@@ -144,8 +155,9 @@ def main():
             if case not in CASES:
                 print("! Unknown case, using 'worst'.")
                 case = "worst"
+            dist = read_distribution()
             print("Running benchmark (takes a few seconds)...")
-            results = run_benchmark(case=case)
+            results = run_benchmark(case=case, distribution=dist)
             print(format_table(results))
             if input("Show graph? (y/n): ").strip().lower() == "y":
                 print(plot_results(results)[1])

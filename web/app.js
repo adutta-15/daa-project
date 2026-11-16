@@ -187,6 +187,14 @@
   genN.addEventListener("input", syncChips);
   genN.addEventListener("blur", () => { const n = parseIntLoose(genN.value); if (n > 0) genN.value = fmt(n); });
 
+  const DIST_HINT = {
+    uniform: "Every letter equally likely. Interpolation search's best case.",
+    skewed: "First letters follow a Zipf law, like real names: lots of a/b/c, few x/y/z.",
+    clustered: "95% of words start with “s”.",
+    exponential: "Words pile up near “a” (a, aa, aaa…). Interpolation search's worst case.",
+  };
+  $("#genDist").addEventListener("change", () => ($("#genDistHint").textContent = DIST_HINT[$("#genDist").value]));
+
   $("#genForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const n = parseIntLoose(genN.value);
@@ -195,7 +203,7 @@
     if (seedRaw && !/^\d+$/.test(seedRaw)) return invalid($("#genSeed"), "Seed must be a whole number.");
     withBusy($("#genBtn"), async () => {
       try {
-        const s = await api("/api/generate", { n, seed: seedRaw === "" ? null : +seedRaw });
+        const s = await api("/api/generate", { n, seed: seedRaw === "" ? null : +seedRaw, distribution: $("#genDist").value });
         setSummary(s);
         browse.offset = 0; loadBrowse();
         toast(s.message, s.capped ? "info" : "ok");
@@ -331,7 +339,7 @@
       const L = (p.low / r.n) * 100, W = ((p.high - p.low + 1) / r.n) * 100, M = ((p.mid + 0.5) / r.n) * 100;
       const cmp = p.cmp === "eq" ? "= match" : p.cmp === "lt" ? "&lt; right" : "&gt; left";
       const final = i === r.binary.trace.length - 1;
-      return `<li class="probe ${final && p.cmp === "eq" ? "is-final" : ""}" style="animation-delay:${Math.min(i * 70, 1400)}ms">
+      return `<li class="probe ${final && p.cmp === "eq" ? "is-final" : ""}" data-i="${i}" title="Show this step" style="animation-delay:${Math.min(i * 70, 1400)}ms">
         <span class="probe-n">${String(i + 1).padStart(2, "0")}</span>
         <div class="probe-range" data-tip="low ${fmt(p.low)} · mid ${fmt(p.mid)} · high ${fmt(p.high)} — ${fmt(p.high - p.low + 1)} left">
           <span class="pr-track"></span><span class="pr-win" style="left:${L}%;width:${W}%"></span><span class="pr-mid" style="left:${M}%"></span>
@@ -394,6 +402,8 @@
         <p class="note">Binary search used <b class="mono">${ratio >= 10 ? fmt(Math.round(ratio)) : ratio.toFixed(1)}×</b> fewer comparisons${timeRatio > 1.5 ? ` and ran <b class="mono">${fmt(Math.round(timeRatio))}×</b> faster` : ""}. Theory says at most <b class="mono">${Math.floor(r.log2n) + 1}</b> probes for n = ${fmt(r.n)}.</p>
       </div>
 
+      <section class="stepper panel" id="stepper" aria-label="Step through binary search"></section>
+
       <div class="two-col">
         <div>
           <div class="trace-head">
@@ -408,7 +418,121 @@
           ${r.resorted ? `<p class="note">The list was unsorted, so it was sorted first.</p>` : ""}
         </div>
       </div>`;
+    initStepper(r);
   }
+
+  /* =========================================================================
+     STEP-THROUGH — replay binary search one probe at a time
+     ========================================================================= */
+  const step = { r: null, frames: [], i: 0, timer: null };
+
+  /* One frame per probe, plus a final "window is empty" frame for a miss. */
+  function buildFrames(r) {
+    const frames = r.binary.trace.map((p, i) => ({ ...p, k: i }));
+    if (!r.found) {
+      const last = r.binary.trace[r.binary.trace.length - 1];
+      const low = last ? (last.cmp === "lt" ? last.mid + 1 : last.low) : 0;
+      const high = last ? (last.cmp === "gt" ? last.mid - 1 : last.high) : -1;
+      frames.push({ empty: true, low, high, k: frames.length });
+    }
+    return frames;
+  }
+
+  function initStepper(r) {
+    stopPlay();
+    step.r = r; step.frames = buildFrames(r); step.i = 0;
+    const host = $("#stepper");
+    if (!host) return;
+    host.innerHTML = `
+      <div class="st-head">
+        <div><h3>Step through binary search</h3>
+          <span class="muted small">Use <kbd>←</kbd> <kbd>→</kbd> to step and <kbd>Space</kbd> to play. Click a probe below to jump to it.</span></div>
+        <div class="st-ctrl" role="group" aria-label="Step controls">
+          <button type="button" class="btn btn-ghost btn-sm" data-st="first" aria-label="First step">⏮</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-st="prev" aria-label="Previous step">◀ Back</button>
+          <button type="button" class="btn btn-primary btn-sm st-play" data-st="play" aria-label="Play">▶ Play</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-st="next" aria-label="Next step">Next ▶</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-st="last" aria-label="Last step">⏭</button>
+        </div>
+      </div>
+      <div class="st-count mono" aria-live="polite"></div>
+      <div class="st-bar" aria-hidden="true">
+        <span class="st-gone st-gone-l"></span><span class="st-win"></span><span class="st-gone st-gone-r"></span>
+        <span class="st-mid"></span>
+      </div>
+      <div class="st-axis mono" aria-hidden="true"><span>0</span><span>${fmt(r.n - 1)}</span></div>
+      <div class="st-ptrs"></div>
+      <p class="st-explain"></p>`;
+    $$("[data-st]", host).forEach((b) => b.addEventListener("click", () => {
+      const a = b.dataset.st;
+      if (a === "play") return step.timer ? stopPlay() : startPlay();
+      stopPlay();
+      if (a === "first") showStep(0);
+      else if (a === "prev") showStep(step.i - 1);
+      else if (a === "next") showStep(step.i + 1);
+      else showStep(step.frames.length - 1);
+    }));
+    $$(".trace .probe").forEach((li) => li.addEventListener("click", () => { stopPlay(); showStep(+li.dataset.i); }));
+    showStep(0);
+  }
+
+  function showStep(i) {
+    const host = $("#stepper"), r = step.r;
+    if (!host || !r) return;
+    step.i = Math.max(0, Math.min(step.frames.length - 1, i));
+    const f = step.frames[step.i], n = r.n, key = esc(r.key);
+    const pc = (v) => (v / n) * 100;
+    const left = f.empty ? 0 : f.low, right = f.empty ? 0 : f.high + 1;
+    $(".st-count", host).innerHTML = `Step <b>${step.i + 1}</b> of ${step.frames.length} · ` +
+      (f.empty ? "window is empty" : `<b>${fmt(f.high - f.low + 1)}</b> of ${fmt(n)} entries still possible`);
+    $(".st-gone-l", host).style.width = pc(f.empty ? f.low : left) + "%";
+    $(".st-gone-r", host).style.cssText = `left:${pc(f.empty ? f.low : right)}%;right:0`;
+    $(".st-win", host).style.cssText = f.empty ? "display:none" : `left:${pc(left)}%;width:${Math.max(0.3, pc(right - left))}%`;
+    $(".st-mid", host).style.cssText = f.empty ? "display:none" : `left:${pc(f.mid + 0.5)}%`;
+
+    const card = (cls, label, idx, word, extra = "") => `<div class="st-ptr ${cls}">
+        <span class="st-pl">${label}</span><span class="st-pi mono">[${fmt(idx)}]</span>
+        <span class="st-pw mono">${esc(word)}</span>${extra}</div>`;
+    if (f.empty) {
+      $(".st-ptrs", host).innerHTML = `<div class="st-ptr is-done"><span class="st-pl">result</span>
+        <span class="st-pw mono">low = ${fmt(f.low)} &gt; high = ${fmt(f.high)}</span></div>`;
+      $(".st-explain", host).innerHTML = `The window is empty, so <b class="mono">“${key}”</b> is <b>not in the list</b>.
+        Binary search stops after ${fmt(r.binary.steps)} comparisons. <code>low</code> has stopped exactly where the word would be inserted: index <b class="mono">${fmt(r.insertion_point)}</b>.`;
+    } else {
+      const rel = f.cmp === "eq" ? "=" : f.cmp === "lt" ? "&lt;" : "&gt;";
+      $(".st-ptrs", host).innerHTML =
+        card("is-low", "low", f.low, f.low_v) +
+        card("is-mid", "mid", f.mid, f.value, `<span class="st-cmp ${f.cmp}">${esc(f.value)} ${rel} ${key}</span>`) +
+        card("is-high", "high", f.high, f.high_v);
+      const mid = `<code>mid = (${fmt(f.low)} + ${fmt(f.high)}) // 2 = ${fmt(f.mid)}</code>`;
+      const size = f.high - f.low + 1;
+      let what;
+      if (f.cmp === "eq") what = `It matches, so <b>found at index ${fmt(f.mid)}</b> after ${fmt(step.i + 1)} comparison${step.i ? "s" : ""}. A linear scan would have needed ${fmt(r.linear.steps)}.`;
+      else if (f.cmp === "lt") what = `“${esc(f.value)}” comes <b>before</b> “${key}”, so the key can only be to the right. Discard the left half: <code>low = mid + 1 = ${fmt(f.mid + 1)}</code>, leaving ${fmt(f.high - f.mid)} of ${fmt(size)}.`;
+      else what = `“${esc(f.value)}” comes <b>after</b> “${key}”, so the key can only be to the left. Discard the right half: <code>high = mid − 1 = ${fmt(f.mid - 1)}</code>, leaving ${fmt(f.mid - f.low)} of ${fmt(size)}.`;
+      $(".st-explain", host).innerHTML = `${mid}. Compare <b class="mono">“${key}”</b> with <span class="mono">arr[${fmt(f.mid)}]</span>. ${what}`;
+    }
+    $$(".trace .probe").forEach((li) => li.classList.toggle("is-current", +li.dataset.i === f.k));
+    const atEnd = step.i === step.frames.length - 1;
+    $('[data-st="next"]', host).disabled = $('[data-st="last"]', host).disabled = atEnd;
+    $('[data-st="prev"]', host).disabled = $('[data-st="first"]', host).disabled = step.i === 0;
+  }
+
+  function startPlay() {
+    if (step.i >= step.frames.length - 1) showStep(0);
+    const btn = $('#stepper [data-st="play"]');
+    btn.textContent = "⏸ Pause"; btn.setAttribute("aria-label", "Pause");
+    step.timer = setInterval(() => {
+      if (step.i >= step.frames.length - 1) return stopPlay();
+      showStep(step.i + 1);
+    }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 1600 : 1100);
+  }
+  function stopPlay() {
+    clearInterval(step.timer); step.timer = null;
+    const btn = $('#stepper [data-st="play"]');
+    if (btn) { btn.textContent = "▶ Play"; btn.setAttribute("aria-label", "Play"); }
+  }
+
 
   /* =========================================================================
      AUTOCOMPLETE
@@ -551,7 +675,7 @@
   const SERIES = ["linear", "jump", "exp", "binary", "interp"];
   const NAMES = { linear: "Linear", jump: "Jump", exp: "Exponential", binary: "Binary", interp: "Interpolation" };
   const SHORT = { linear: "Linear", jump: "Jump", exp: "Exp", binary: "Binary", interp: "Interp" };
-  const THEORY = { linear: "n", jump: "√n", exp: "log n", binary: "log n", interp: "log log n" };
+  const THEORY = { linear: "n", jump: "√n", exp: "log n", binary: "log n", interp: "log log n, worst n" };
 
   $$("#caseSeg .seg-btn").forEach((b) => b.addEventListener("click", () => {
     if (bench.running) return;
@@ -577,6 +701,7 @@
     if (!sizes.length) return toast("Pick at least one size.", "err");
     bench.running = true; bench.results = [];
     $$("#benchSizes .chip").forEach((c) => (c.disabled = true));
+    $("#benchDist").disabled = true;
     const prog = $("#benchProgress"); prog.hidden = false; prog.firstElementChild.style.width = "0";
     renderTable(); drawChart();
     withBusy($("#benchBtn"), async () => {
@@ -584,7 +709,7 @@
         for (let i = 0; i < sizes.length; i++) {
           $("#benchBtn .btn-label").textContent = `Running n = ${fmtShort(sizes[i])}…`;
           prog.firstElementChild.style.width = ((i + 0.35) / sizes.length) * 100 + "%";
-          const d = await api("/api/benchmark", { sizes: [sizes[i]], case: bench.case });
+          const d = await api("/api/benchmark", { sizes: [sizes[i]], case: bench.case, distribution: $("#benchDist").value });
           bench.results.push(d.results[0]);
           prog.firstElementChild.style.width = ((i + 1) / sizes.length) * 100 + "%";
           renderTable(d.results[0].n); drawChart();
@@ -595,6 +720,7 @@
         bench.running = false;
         $("#benchBtn .btn-label").textContent = "Run again";
         $$("#benchSizes .chip").forEach((c) => (c.disabled = false));
+        $("#benchDist").disabled = false;
         $("#csvBtn").disabled = !bench.results.length;
         setTimeout(() => (prog.hidden = true), 700);
       }
@@ -644,11 +770,11 @@
 
   $("#csvBtn").addEventListener("click", () => {
     if (!bench.results.length) return;
-    const cols = ["case", "n", "keys", "log2n", ...SERIES.flatMap((s) => [s + "_steps", s + "_time"]), "sort_time", "break_even_steps", "break_even_time"];
+    const cols = ["case", "distribution", "n", "keys", "log2n", ...SERIES.flatMap((s) => [s + "_steps", s + "_time"]), "sort_time", "break_even_steps", "break_even_time"];
     const csv = [cols.join(","), ...bench.results.map((r) => cols.map((c) => r[c] ?? "").join(","))].join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `bisect-benchmark-${bench.results[0].case}.csv`;
+    a.download = `bisect-benchmark-${bench.results[0].case}-${bench.results[0].distribution}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
@@ -760,10 +886,15 @@
   const help = $("#helpDialog");
   $("#helpBtn").addEventListener("click", () => help.showModal());
   document.addEventListener("keydown", (e) => {
-    const typing = e.target.matches("input, textarea, select, [contenteditable]");
+    const typing = !!e.target.matches?.("input, textarea, select, [contenteditable]");
     if (e.key === "Escape" && typing) { e.target.blur(); return; }
     if (typing || e.metaKey || e.ctrlKey || e.altKey || help.open) return;
     const view = (location.hash.match(/^#\/(\w+)/) || [])[1] || "dataset";
+    if (view === "search" && $("#stepper") && ["ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+      e.preventDefault();
+      if (e.key === " ") return step.timer ? stopPlay() : startPlay();
+      stopPlay(); return showStep(step.i + (e.key === "ArrowRight" ? 1 : -1));
+    }
     if (/^[1-6]$/.test(e.key)) { go(VIEWS[+e.key - 1]); e.preventDefault(); }
     else if (e.key === "/") { e.preventDefault(); if (view === "prefix") prefixQ.focus(); else { go("search"); setTimeout(() => searchQ.focus(), 30); } }
     else if (e.key.toLowerCase() === "t") toggleTheme();

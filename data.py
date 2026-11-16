@@ -47,13 +47,40 @@ def load_data(path):
         return [], f"Could not read file: {e}"
 
 
-def generate_data(n, seed=None):
+# How the random words are spread over the alphabet. Binary search does not
+# care, but interpolation search (which guesses a position from the value)
+# depends on it heavily, so these let us show its best and worst cases.
+DISTRIBUTIONS = {
+    "uniform": "Every letter equally likely (interpolation search's best case)",
+    "skewed": "First letters follow a Zipf law, like real names: lots of a/b/c, few x/y/z",
+    "clustered": "95% of words start with 's'",
+    "exponential": "Words pile up near 'a' (a, aa, aaa...): interpolation search's worst case",
+}
+_LETTERS = string.ascii_lowercase
+_ZIPF = [1 / (i + 1) ** 1.5 for i in range(26)]
+
+
+def _word(rng, lo=5, hi=10):
+    return "".join(rng.choices(_LETTERS, k=rng.randint(lo, hi)))
+
+
+def generate_data(n, seed=None, distribution="uniform"):
     """n random lowercase words (length 5-10), returned sorted."""
+    if distribution not in DISTRIBUTIONS:
+        raise ValueError(f"distribution must be one of {list(DISTRIBUTIONS)}")
     if n <= 0:
         return []
     rng = random.Random(seed)
-    letters = string.ascii_lowercase
-    data = ["".join(rng.choices(letters, k=rng.randint(5, 10))) for _ in range(n)]
+    if distribution == "uniform":
+        data = [_word(rng) for _ in range(n)]
+    elif distribution == "skewed":
+        firsts = rng.choices(_LETTERS, weights=_ZIPF, k=n)
+        data = [first + _word(rng, 4, 9) for first in firsts]
+    elif distribution == "clustered":
+        data = [("s" if rng.random() < 0.95 else rng.choice(_LETTERS)) + _word(rng, 4, 9)
+                for _ in range(n)]
+    else:  # exponential: k leading 'a's, k ~ exponential, so values crowd towards 0
+        data = ["a" * min(int(rng.expovariate(0.35)), 12) + _word(rng) for _ in range(n)]
     data.sort()
     return data
 
