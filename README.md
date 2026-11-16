@@ -284,9 +284,9 @@ Run `python server.py` and use the left sidebar (or the bottom tab bar on phones
 | Screen | What you can do |
 |---|---|
 | **1 · Dataset** | Generate n words (presets 1K → 5M, a distribution, optional seed) or drag-and-drop a `.txt` file. See entry count, average length, first/last word, a first-letter distribution (click a bar to jump there) and a paged browser with *jump to*. |
-| **2 · Exact search** | Search a word or press **Random hit**. See found/not-found, index, first occurrence or insertion point, comparisons for all six algorithms drawn to scale, a **step-through** panel (Back / Play / Next) that explains each probe, the animated probe trace (click a row to jump to it) and the sorted neighbourhood. |
+| **2 · Exact search** | Search a word or press **Random hit**. See found/not-found, index, first occurrence or insertion point, a **leaderboard** ranking all six algorithms by comparisons (log or linear bars, time per search, "fewest" and "fastest" tags), a **step-through** panel (Back / Play / Next) with a zoomed view of the current window that explains each probe, the animated probe trace (click a row to jump to it) and the sorted neighbourhood. |
 | **3 · Autocomplete** | Type a prefix; matches update live. Shows lower-bound probes vs forward-walk steps. Use ↑ ↓ and Enter to send a match to Exact search. |
-| **4 · Add & delete** | Insert or delete an entry and see exactly where it lands or where it was removed. A session log keeps track of changes. |
+| **4 · Add & delete** | Insert or delete an entry and see exactly where it lands or where it was removed, and what it cost: the O(log n) search for the slot plus the O(n) shift of every entry after it. A session log keeps track of changes. |
 | **5 · Benchmark** | Choose sizes, a data distribution and a case (worst / average / miss), run, and watch the log–log chart fill in one size at a time. Hover for exact values; switch between *Comparisons* and *Time*. Below the table: measured growth slopes, the sort break-even, and **Export CSV**. |
 | **6 · Theory** | Step-by-step Master Method proof, complexity table and a slider that halves n until it reaches 1. |
 

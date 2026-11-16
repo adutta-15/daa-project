@@ -293,24 +293,25 @@
               <button role="tab" class="seg-btn" aria-selected="false" data-case="average" data-tip="Random words that exist">Average</button>
               <button role="tab" class="seg-btn" aria-selected="false" data-case="miss" data-tip="Random words that don't exist">Miss</button>
             </div>
-            <div class="seg seg-sm" role="tablist" aria-label="Metric" id="metricSeg">
-              <button role="tab" class="seg-btn is-on" aria-selected="true" data-metric="steps">Comparisons</button>
-              <button role="tab" class="seg-btn" aria-selected="false" data-metric="time">Time (ms)</button>
-            </div>
-            <button class="btn btn-ghost btn-sm" id="csvBtn" type="button" disabled data-tip="Download the results for your report">Export CSV</button>
             <button class="btn btn-primary" id="benchBtn" type="button"><span class="btn-label">Run benchmark</span><span class="spinner" aria-hidden="true"></span></button>
           </div>
 
           <div class="progress" id="benchProgress" hidden><span></span></div>
 
           <div class="panel chart-panel">
+            <div class="chart-top">
+              <div><h3>Growth with n</h3><span class="muted small">log–log scale: a straight line means a power law</span></div>
+              <div class="seg seg-sm" role="tablist" aria-label="Metric" id="metricSeg">
+                <button role="tab" class="seg-btn is-on" aria-selected="true" data-metric="steps">Comparisons</button>
+                <button role="tab" class="seg-btn" aria-selected="false" data-metric="time">Time per search</button>
+              </div>
+            </div>
             <div class="legend" id="legend">
               <span class="lg"><i class="sw sw-interp"></i>Interpolation · O(log log n)</span>
               <span class="lg"><i class="sw sw-binary"></i>Binary · O(log n)</span>
               <span class="lg"><i class="sw sw-exp"></i>Exponential · O(log n)</span>
               <span class="lg"><i class="sw sw-jump"></i>Jump · O(√n)</span>
               <span class="lg"><i class="sw sw-linear"></i>Linear · O(n)</span>
-              <span class="muted small lg-note">log–log scale</span>
             </div>
             <div class="chart" id="chart" role="img" aria-label="Benchmark chart">
               <div class="empty empty-sm" id="chartEmpty">
@@ -320,6 +321,10 @@
             </div>
           </div>
 
+          <div class="table-head">
+            <h3>Results</h3>
+            <button class="btn btn-ghost btn-sm" id="csvBtn" type="button" disabled data-tip="Download the results for your report">Export CSV</button>
+          </div>
           <div class="table-wrap">
             <table class="table mono" id="benchTable">
               <thead>

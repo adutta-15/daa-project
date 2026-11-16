@@ -210,6 +210,7 @@ def api_search(body):
         it, ic = time_search(interpolation_search, arr, key, repeats=100)
         idx, _ = binary_search(arr, key)
         ridx, rc = binary_search_recursive(arr, key)
+        rt, _ = time_search(binary_search_recursive, arr, key, repeats=100)
         tidx, trace = binary_search_trace(arr, key)
         assert tidx == idx and len(trace) == bc, "trace diverged from binary_search"
         first = None
@@ -225,7 +226,7 @@ def api_search(body):
             "first_occurrence": first,
             "insertion_point": ins,
             "binary": {"steps": bc, "ms": bt * 1000, "trace": trace},
-            "recursive": {"steps": rc, "index": ridx},
+            "recursive": {"steps": rc, "index": ridx, "ms": rt * 1000},
             "linear": {"steps": lc, "ms": lt * 1000},
             "jump": {"steps": jc, "ms": jt * 1000,
                      "block": max(1, math.isqrt(len(arr)))},

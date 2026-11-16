@@ -324,8 +324,6 @@
   function renderSearch(r) {
     const ratio = r.linear.steps / Math.max(1, r.binary.steps);
     const timeRatio = r.linear.ms / Math.max(1e-9, r.binary.ms);
-    const maxSteps = Math.max(r.linear.steps, r.binary.steps, r.jump.steps, r.exponential.steps, r.interpolation.steps);
-    const pct = (v) => Math.max(0.25, (v / maxSteps) * 100);
 
     const verdict = r.found
       ? `<span class="badge badge-ok">Found</span>
@@ -358,49 +356,17 @@
     searchOut.innerHTML = `
       <div class="verdict">${verdict}</div>
 
-      <div class="race">
-        <div class="race-cell race-cell-hero">
-          <div class="race-k"><i class="sw sw-binary"></i>Binary · iterative</div>
-          <div class="race-big">${fmt(r.binary.steps)}<small>comparisons</small></div>
-          <div class="race-sub">${fmtMs(r.binary.ms)} · avg of 100 runs</div>
+      <section class="board panel" id="board" aria-label="Algorithm leaderboard">
+        <div class="board-head">
+          <div><h3>Leaderboard</h3><span class="muted small">Same key, same list of ${fmt(r.n)} entries. Ranked by comparisons.</span></div>
+          <div class="seg seg-sm" role="tablist" aria-label="Bar scale" id="boardScale">
+            <button role="tab" class="seg-btn" data-scale="log">Log scale</button>
+            <button role="tab" class="seg-btn" data-scale="linear">Linear scale</button>
+          </div>
         </div>
-        <div class="race-cell">
-          <div class="race-k"><i class="sw sw-binary"></i>Binary · recursive</div>
-          <div class="race-big">${fmt(r.recursive.steps)}<small>comparisons</small></div>
-          <div class="race-sub">${r.recursive.steps === r.binary.steps ? "same path, O(log n) stack" : "differs from iterative"}</div>
-        </div>
-        <div class="race-cell">
-          <div class="race-k"><i class="sw sw-linear"></i>Linear scan</div>
-          <div class="race-big">${fmt(r.linear.steps)}<small>comparisons</small></div>
-          <div class="race-sub">${fmtMs(r.linear.ms)}</div>
-        </div>
-      </div>
-      <div class="race race-2">
-        <div class="race-cell">
-          <div class="race-k"><i class="sw sw-exp"></i>Exponential · gallop then halve</div>
-          <div class="race-big">${fmt(r.exponential.steps)}<small>comparisons</small></div>
-          <div class="race-sub">${fmtMs(r.exponential.ms)} · O(log i), i = position</div>
-        </div>
-        <div class="race-cell">
-          <div class="race-k"><i class="sw sw-interp"></i>Interpolation · guess the position</div>
-          <div class="race-big">${fmt(r.interpolation.steps)}<small>comparisons</small></div>
-          <div class="race-sub">${fmtMs(r.interpolation.ms)} · O(log log n) on uniform data</div>
-        </div>
-        <div class="race-cell">
-          <div class="race-k"><i class="sw sw-jump"></i>Jump · blocks of √n = ${fmt(r.jump.block)}</div>
-          <div class="race-big">${fmt(r.jump.steps)}<small>comparisons</small></div>
-          <div class="race-sub">${fmtMs(r.jump.ms)} · O(√n)</div>
-        </div>
-      </div>
-
-      <div class="scale-compare" aria-label="Comparisons drawn to scale">
-        <div class="sc-row"><span>Binary</span><div class="sc-track"><div class="sc-fill fill-binary" style="width:${pct(r.binary.steps)}%"></div></div><span>${fmt(r.binary.steps)}</span></div>
-        <div class="sc-row"><span>Interpolation</span><div class="sc-track"><div class="sc-fill" style="background:var(--interp);width:${pct(r.interpolation.steps)}%"></div></div><span>${fmt(r.interpolation.steps)}</span></div>
-        <div class="sc-row"><span>Exponential</span><div class="sc-track"><div class="sc-fill" style="background:var(--exp);width:${pct(r.exponential.steps)}%"></div></div><span>${fmt(r.exponential.steps)}</span></div>
-        <div class="sc-row"><span>Jump</span><div class="sc-track"><div class="sc-fill" style="background:var(--jump);width:${pct(r.jump.steps)}%"></div></div><span>${fmt(r.jump.steps)}</span></div>
-        <div class="sc-row"><span>Linear</span><div class="sc-track"><div class="sc-fill" style="background:var(--linear);width:${pct(r.linear.steps)}%"></div></div><span>${fmt(r.linear.steps)}</span></div>
-        <p class="note">Binary search used <b class="mono">${ratio >= 10 ? fmt(Math.round(ratio)) : ratio.toFixed(1)}×</b> fewer comparisons${timeRatio > 1.5 ? ` and ran <b class="mono">${fmt(Math.round(timeRatio))}×</b> faster` : ""}. Theory says at most <b class="mono">${Math.floor(r.log2n) + 1}</b> probes for n = ${fmt(r.n)}.</p>
-      </div>
+        <ol class="board-rows"></ol>
+        <p class="note">Binary search used <b class="mono">${ratio >= 10 ? fmt(Math.round(ratio)) : ratio.toFixed(1)}×</b> fewer comparisons than a linear scan${timeRatio > 1.5 ? ` and ran <b class="mono">${fmt(Math.round(timeRatio))}×</b> faster` : ""}. Theory says at most <b class="mono">${Math.floor(r.log2n) + 1}</b> probes for n = ${fmt(r.n)}.</p>
+      </section>
 
       <section class="stepper panel" id="stepper" aria-label="Step through binary search"></section>
 
@@ -418,7 +384,44 @@
           ${r.resorted ? `<p class="note">The list was unsorted, so it was sorted first.</p>` : ""}
         </div>
       </div>`;
+    renderBoard(r);
     initStepper(r);
+  }
+
+  /* =========================================================================
+     LEADERBOARD — every algorithm on one ranked list
+     ========================================================================= */
+  function renderBoard(r) {
+    const rows = [
+      { sw: "binary", name: "Binary search", sub: "iterative", big: "O(log n)", d: r.binary },
+      { sw: "binary", name: "Binary search", sub: "recursive · O(log n) stack", big: "O(log n)", d: r.recursive },
+      { sw: "interp", name: "Interpolation", sub: "guesses the position", big: "O(log log n)", d: r.interpolation },
+      { sw: "exp", name: "Exponential", sub: "gallop, then halve", big: "O(log i)", d: r.exponential },
+      { sw: "jump", name: "Jump", sub: `blocks of √n = ${fmt(r.jump.block)}`, big: "O(√n)", d: r.jump },
+      { sw: "linear", name: "Linear scan", sub: "checks every entry", big: "O(n)", d: r.linear },
+    ].sort((a, b) => a.d.steps - b.d.steps);   // stable: ties keep this order
+    const fewest = rows[0].d.steps;
+    const fastest = Math.min(...rows.map((x) => x.d.ms));
+    const max = Math.max(...rows.map((x) => x.d.steps));
+    const scale = store.get("boardScale", "log");
+    const width = (v) => scale === "log"
+      ? Math.max(1.5, (Math.log10(v + 1) / Math.log10(max + 1)) * 100)
+      : Math.max(0.4, (v / max) * 100);
+    $$("#boardScale .seg-btn").forEach((b) => {
+      const on = b.dataset.scale === scale;
+      b.classList.toggle("is-on", on); b.setAttribute("aria-selected", on);
+      b.onclick = () => { store.set("boardScale", b.dataset.scale); renderBoard(r); };
+    });
+    $("#board .board-rows").innerHTML = rows.map((x, i) => `
+      <li class="brow ${x.d.steps === fewest ? "is-best" : ""}">
+        <span class="b-rank mono">${i + 1}</span>
+        <span class="b-name"><i class="sw sw-${x.sw}"></i><b>${x.name}</b><small>${esc(x.sub)}</small></span>
+        <span class="b-big mono">${x.big}</span>
+        <span class="b-track"><span class="b-fill" style="width:${width(x.d.steps)}%;background:var(--${x.sw})"></span></span>
+        <span class="b-steps mono"><b>${fmt(x.d.steps)}</b><small>cmp</small></span>
+        <span class="b-ms mono">${fmtMs(x.d.ms)}</span>
+        <span class="b-tags">${x.d.steps === fewest ? `<em class="tag tag-best">fewest</em>` : ""}${x.d.ms === fastest ? `<em class="tag tag-fast">fastest</em>` : ""}</span>
+      </li>`).join("");
   }
 
   /* =========================================================================
@@ -456,6 +459,12 @@
         </div>
       </div>
       <div class="st-count mono" aria-live="polite"></div>
+      <div class="st-label">This step: the remaining window, zoomed in</div>
+      <div class="st-zoom" aria-hidden="true">
+        <span class="sz-drop"></span><span class="sz-mid"></span><span class="sz-empty">empty: low &gt; high</span>
+      </div>
+      <div class="st-zaxis mono" aria-hidden="true"><span class="za-low"></span><span class="za-mid"></span><span class="za-high"></span></div>
+      <div class="st-label">Whole list</div>
       <div class="st-bar" aria-hidden="true">
         <span class="st-gone st-gone-l"></span><span class="st-win"></span><span class="st-gone st-gone-r"></span>
         <span class="st-mid"></span>
@@ -489,6 +498,30 @@
     $(".st-gone-r", host).style.cssText = `left:${pc(f.empty ? f.low : right)}%;right:0`;
     $(".st-win", host).style.cssText = f.empty ? "display:none" : `left:${pc(left)}%;width:${Math.max(0.3, pc(right - left))}%`;
     $(".st-mid", host).style.cssText = f.empty ? "display:none" : `left:${pc(f.mid + 0.5)}%`;
+
+    // Zoomed view: the current [low, high] window stretched to full width.
+    const zoom = $(".st-zoom", host);
+    zoom.classList.toggle("is-empty", !!f.empty);
+    zoom.classList.toggle("is-eq", f.cmp === "eq");
+    if (!f.empty) {
+      const size = f.high - f.low + 1;
+      const zm = ((f.mid - f.low + 0.5) / size) * 100;
+      const cut = ((f.mid - f.low + 1) / size) * 100;          // right edge of mid
+      const drop = $(".sz-drop", zoom);
+      if (f.cmp === "lt") drop.style.cssText = `left:0;width:${cut}%`;
+      else if (f.cmp === "gt") drop.style.cssText = `left:${((f.mid - f.low) / size) * 100}%;right:0`;
+      else drop.style.cssText = "width:0";
+      $(".sz-mid", zoom).style.left = zm + "%";
+      $(".za-low", host).textContent = `low ${fmt(f.low)}`;
+      $(".za-high", host).textContent = `high ${fmt(f.high)}`;
+      const zmid = $(".za-mid", host);
+      zmid.textContent = `mid ${fmt(f.mid)}`;
+      zmid.style.left = Math.min(85, Math.max(15, zm)) + "%";
+    } else {
+      $(".za-low", host).textContent = `high ${fmt(f.high)}`;
+      $(".za-high", host).textContent = `low ${fmt(f.low)}`;
+      $(".za-mid", host).textContent = "";
+    }
 
     const card = (cls, label, idx, word, extra = "") => `<div class="st-ptr ${cls}">
         <span class="st-pl">${label}</span><span class="st-pi mono">[${fmt(idx)}]</span>
@@ -626,7 +659,12 @@
       <div>
         <span class="badge ${kind === "add" ? "badge-ok" : "badge-miss"}">${kind === "add" ? "Inserted" : "Deleted"}</span>
         <h3><span class="mono">“${esc(word)}”</span> ${kind === "add" ? "landed at" : "was at"} index <span class="mono">${fmt(r.index)}</span></h3>
-        <p>${kind === "add" ? `Located with ${fmt(r.steps)} binary probes; the list now has ${fmt(r.n)} entries and is still sorted.` : `Found with ${fmt(r.steps)} binary probes, then removed. ${fmt(r.n)} entries remain.`}</p>
+        <p>${kind === "add" ? `The list now has ${fmt(r.n)} entries and is still sorted.` : `${fmt(r.n)} entries remain, still sorted.`}</p>
+        <dl class="ecost">
+          <div><dt>${kind === "add" ? "Find the slot" : "Find the entry"}</dt><dd class="mono">${fmt(r.steps)} comparisons</dd><dd class="ecost-o mono">O(log n)</dd></div>
+          <div><dt>${kind === "add" ? "Make room" : "Close the gap"}</dt><dd class="mono">${fmt(Math.max(0, kind === "add" ? r.n - 1 - r.index : r.n - r.index))} entries shifted ${kind === "add" ? "right" : "left"}</dd><dd class="ecost-o mono">O(n)</dd></div>
+        </dl>
+        <p class="muted small">Searching is cheap, but an array has to move everything after the slot, so ${kind === "add" ? "inserting" : "deleting"} is O(n) overall. A balanced search tree would make both O(log n).</p>
       </div>
       <ol class="neigh">${kind === "del" ? gap + rows : rows}</ol></div>`;
   }
@@ -779,13 +817,15 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
-  function niceLogDomain(vals) {
+  function niceLogDomain(vals, pad = false) {
     const lo = Math.min(...vals), hi = Math.max(...vals);
-    return [Math.pow(10, Math.floor(Math.log10(lo))), Math.pow(10, Math.ceil(Math.log10(hi) + (hi === lo ? 1 : 0)))];
+    let bottom = Math.pow(10, Math.floor(Math.log10(lo)));
+    if (pad && lo < bottom * 1.5) bottom /= 10;      // don't draw a line on the axis
+    return [bottom, Math.pow(10, Math.ceil(Math.log10(hi) + (hi === lo ? 1 : 0)))];
   }
   const tickLabel = (v, isTime) => {
     if (isTime) { if (v >= 1000) return v / 1000 + " s"; if (v >= 1) return v + " ms"; if (v >= 0.001) return v * 1000 + " µs"; return v * 1e6 + " ns"; }
-    return v >= 1e6 ? v / 1e6 + "M" : v >= 1e3 ? v / 1e3 + "K" : String(v);
+    return v >= 1e6 ? v / 1e6 + "M" : v >= 1e3 ? v / 1e3 + "K" : String(+v.toPrecision(3));
   };
 
   function drawChart(animate = true) {
@@ -806,7 +846,7 @@
     const xs = rs.map((r) => r.n);
     const [x0, x1] = rs.length === 1 ? [xs[0] / 10, xs[0] * 10] : niceLogDomain(xs);
     const ys = rs.flatMap((r) => SERIES.map((s) => get(r, s))).filter((v) => v > 0);
-    const [y0, y1] = niceLogDomain(ys);
+    const [y0, y1] = niceLogDomain(ys, true);
     const X = (v) => m.l + ((Math.log10(v) - Math.log10(x0)) / (Math.log10(x1) - Math.log10(x0))) * iw;
     const Y = (v) => m.t + ih - ((Math.log10(Math.max(v, y0)) - Math.log10(y0)) / (Math.log10(y1) - Math.log10(y0))) * ih;
 
