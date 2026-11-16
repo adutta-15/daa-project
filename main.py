@@ -3,17 +3,20 @@ main.py  (Member 4)
 Menu-driven CLI. Run:  python main.py
 (For the web interface, run:  python server.py)
 """
+import math
+
 from benchmark import format_table, plot_results, run_benchmark, time_search
 from data import (add_entry, clean_input, delete_entry, generate_data,
                   is_sorted, load_data)
-from search import (binary_search, binary_search_recursive, first_occurrence,
-                    linear_search, prefix_search)
+from search import (binary_search, binary_search_recursive, exponential_search,
+                    first_occurrence, jump_search, linear_search, lower_bound,
+                    prefix_search)
 
 MENU = """
 ========== SMART CONTACT / DICTIONARY SEARCH ==========
 1. Load data from file
 2. Generate random data (n)
-3. Exact search (binary vs linear)
+3. Exact search (binary vs jump vs exponential vs linear)
 4. Prefix search (autocomplete)
 5. Add entry
 6. Delete entry
@@ -29,6 +32,8 @@ f(n) = Theta(n^(log_b a))  ->  Case 2  ->  T(n) = Theta(log n)
 
             Best    Average    Worst      Space
 Binary      O(1)    O(log n)   O(log n)   O(1) iterative / O(log n) recursive
+Jump        O(1)    O(sqrt n)  O(sqrt n)  O(1)      (block size = sqrt n)
+Exponential O(1)    O(log i)   O(log n)   O(1)      (i = position of the key)
 Linear      O(1)    O(n)       O(n)       O(1)
 Prefix      O(log n + k) where k = number of matches
 """
@@ -63,15 +68,20 @@ def do_exact_search(arr):
         return
     bt, bc = time_search(binary_search, arr, key, repeats=100)
     lt, lc = time_search(linear_search, arr, key)
+    jt, jc = time_search(jump_search, arr, key, repeats=10)
+    et, ec = time_search(exponential_search, arr, key, repeats=100)
     idx, _ = binary_search(arr, key)
-    ridx, rc = binary_search_recursive(arr, key)
+    _, rc = binary_search_recursive(arr, key)
     if idx == -1:
-        print(f"'{key}' NOT FOUND.")
+        ins, _ = lower_bound(arr, key)
+        print(f"'{key}' NOT FOUND (it would be inserted at index {ins}).")
     else:
         first, _ = first_occurrence(arr, key)
         print(f"FOUND '{key}' at index {idx} (first occurrence: {first}).")
     print(f"Binary (iterative): {bc} steps, {bt*1000:.5f} ms")
     print(f"Binary (recursive): {rc} steps")
+    print(f"Exponential       : {ec} steps, {et*1000:.5f} ms")
+    print(f"Jump (block {math.isqrt(len(arr))})".ljust(18) + f": {jc} steps, {jt*1000:.5f} ms")
     print(f"Linear            : {lc} steps, {lt*1000:.5f} ms")
 
 
@@ -105,7 +115,9 @@ def main():
             if n > 5_000_000:
                 print("! Too large, capping at 5,000,000.")
                 n = 5_000_000
-            arr = generate_data(n)
+            seed_txt = input("Seed (blank = random): ").strip()
+            seed = int(seed_txt) if seed_txt.lstrip("-").isdigit() else None
+            arr = generate_data(n, seed=seed)
             print(f"Generated {len(arr):,} sorted entries. Sample: {arr[:3]}")
         elif choice == "3":
             if need_data(arr):

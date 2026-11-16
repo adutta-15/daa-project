@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Karen Keeranchira - Resume</title>
+<style>
+  @page { size: A4; margin: 8mm 12mm 6mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Times New Roman", Georgia, serif; font-size: 9.2pt; line-height: 1.2; color: #111; margin: 0; }
+  a { color: #111; text-decoration: none; }
+  header { text-align: center; margin-bottom: 5px; }
+  h1 { font-size: 20pt; margin: 0; font-weight: bold; letter-spacing: .2px; }
+  .role { font-size: 10.5pt; margin: 1px 0 3px; }
+  .contact { font-size: 9pt; }
+  h2 { font-size: 10pt; font-weight: bold; text-transform: uppercase; letter-spacing: .3px;
+       margin: 6px 0 3px; padding-bottom: 1px; border-bottom: 1.3px solid #111; }
+  p { margin: 0; }
+  .entry { display: grid; grid-template-columns: 90px 1fr auto; column-gap: 10px; margin-bottom: 4px; }
+  .date { font-size: 8.5pt; padding-top: 1px; white-space: nowrap; }
+  .title { font-weight: bold; }
+  .sub { font-style: italic; font-weight: bold; }
+  .place { text-align: right; font-size: 9pt; padding-top: 1px; white-space: nowrap; }
+  ul { margin: 1px 0 0; padding-left: 14px; }
+  li { margin: 0 0 .5px; }
+  .full { grid-column: 2 / 4; }
+  .tags { display: flex; flex-wrap: wrap; gap: 3px 4px; }
+  .tags span { border: 1px solid #444; padding: 0 5px; font-size: 8.8pt; line-height: 1.35; }
+  .skillrow { display: grid; grid-template-columns: 112px 1fr; column-gap: 8px; margin-bottom: 2px; }
+  .skillrow b { font-size: 9.2pt; }
+  .langs { display: grid; grid-template-columns: 1fr 1fr; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Karen Keeranchira</h1>
+  <div class="role">Computer Engineering Student &middot; Full-Stack &amp; AI Engineering</div>
+  <div class="contact">
+    Goa, India &nbsp;&middot;&nbsp; <a href="mailto:karenkeeranchira@gmail.com">karenkeeranchira@gmail.com</a>
+    &nbsp;&middot;&nbsp; <a href="https://www.linkedin.com/in/karen-keeranchira-788264426">linkedin.com/in/karen-keeranchira-788264426</a>
+    &nbsp;&middot;&nbsp; <a href="https://github.com/06karen">github.com/06karen</a>
+  </div>
+</header>
+
+<h2>Summary</h2>
+<p>I am an aspiring Software Engineer with a strong interest in software development, problem-solving, and emerging technologies, and I enjoy building practical applications that solve real-world problems. Through coursework and personal projects, I have gained hands-on experience with Python, Java, C++, JavaScript, and TypeScript, along with React, Next.js, PostgreSQL, and Supabase. I have also built AI/ML applications, data-processing pipelines, and backend integrations, including retrieval-augmented generation (RAG) systems. I am eager to apply my skills in a professional environment, learn from experienced developers, and contribute to meaningful projects.</p>
+
+<h2>Projects</h2>
+
+<div class="entry">
+  <div class="date">07/2026 - 11/2026</div>
+  <div>
+    <div class="title">Fineprint: RAG Document Intelligence for Legal Contracts</div>
+    <div class="sub">React, TypeScript, Supabase, pgvector, Deno Edge Functions, OpenRouter</div>
+  </div>
+  <div class="place">Team of 2</div>
+  <ul class="full">
+    <li>Built a PDF question-answering system with clause-level citations: text extraction, line reconstruction, quality scoring, and a vision-model OCR fallback for scanned pages.</li>
+    <li>Implemented clause-aware chunking with legal heading and proviso detection. On a 45-question test set over 15 contracts, it raised Recall@8 from 0.47 to 1.00 and MRR from 0.32 to 0.89 compared with fixed-size chunks.</li>
+    <li>Added cross-encoder reranking (MRR 0.89 &rarr; 0.96) and follow-up query rewriting (MRR 0.69 &rarr; 0.87 on multi-turn questions), each validated with ablation runs.</li>
+    <li>Developed streaming chat, multi-document conversations, risk reports, contract comparison, and a retrieval inspector. Secured data with Clerk JWT auth and Row Level Security.</li>
+  </ul>
+</div>
+
+<div class="entry">
+  <div class="date">09/2026 - 11/2026</div>
+  <div>
+    <div class="title">WanderBase: Collaborative AI Travel Itinerary Builder</div>
+    <div class="sub">Next.js 15, TypeScript, PostgreSQL, Supabase, Playwright, GitHub Actions</div>
+  </div>
+  <div class="place">DBMS Project</div>
+  <ul class="full">
+    <li>Designed a 16-table normalized PostgreSQL schema that enforces business rules in the database with GiST exclusion constraints (no overlapping activities) and deferred triggers (balanced expense splits).</li>
+    <li>Wrote 54 Row Level Security policies for per-trip roles, verified by 92 pgTAP assertions and Playwright end-to-end tests. Set up CI that replays all migrations and checks for type drift.</li>
+    <li>Built AI itinerary generation grounded in a places knowledge base ingested from OpenStreetMap and Wikivoyage, with foreign keys that prevent the AI from storing invented places.</li>
+  </ul>
+</div>
+
+<div class="entry">
+  <div class="date">03/2026</div>
+  <div>
+    <div class="title">Nexus: Game Launcher UI (1st Place, Frontend Hackathon)</div>
+    <div class="sub">React 19, Vite, Tailwind CSS, Framer Motion</div>
+  </div>
+  <div class="place">Hackathon</div>
+  <ul class="full">
+    <li>Built a desktop-style launcher with 10+ views (store, library, achievements, friends, downloads, settings) and a store with cart, wishlist, and game-detail modals.</li>
+    <li>Implemented client-side search, filtering, and sorting with React hooks, saved settings to localStorage, and added animated page transitions.</li>
+  </ul>
+</div>
+
+<div class="entry">
+  <div class="date">09/2026 - 11/2026</div>
+  <div>
+    <div class="title">GOA-LLM: Grounded Instruction Dataset for LLM Fine-Tuning</div>
+    <div class="sub">Python, Hugging Face Datasets, datasketch (MinHash), pytest</div>
+  </div>
+  <div class="place">Team of 2</div>
+  <ul class="full">
+    <li>Built a crawl&ndash;clean&ndash;chunk&ndash;generate&ndash;deduplicate pipeline over Wikipedia, Wikivoyage, and government sources, producing 13,061 candidate Q&amp;A pairs and a curated 1,865-example train/validation/eval split with zero duplicates across splits.</li>
+  </ul>
+</div>
+
+<div class="entry">
+  <div class="date">08/2026</div>
+  <div>
+    <div class="title">BizWa: AI WhatsApp Business Assistant</div>
+    <div class="sub">Next.js, Supabase, pgvector, Clerk, OpenRouter</div>
+  </div>
+  <div class="place">24-hr Hackathon</div>
+  <ul class="full">
+    <li>Co-built an assistant that answers FAQs, qualifies leads, and books appointments, using hybrid retrieval (vector + BM25 with rank fusion) and an owner dashboard.</li>
+  </ul>
+</div>
+
+<h2>Education</h2>
+<div class="entry">
+  <div class="date">2024 - 2028</div>
+  <div>
+    <div class="title">Bachelor of Engineering (B.E.) in Computer Engineering</div>
+    <div class="sub">Don Bosco College of Engineering</div>
+  </div>
+  <div class="place">Fatorda, Goa</div>
+  <ul class="full">
+    <li>CGPA: 9.10 (First Year) &middot; 8.98 (Second Year). Currently in third year.</li>
+    <li>Coursework: Database Management Systems, Design &amp; Analysis of Algorithms, Theory of Computation, Discrete Mathematics.</li>
+  </ul>
+</div>
+
+<h2>Certifications</h2>
+<div class="entry">
+  <div class="date"></div>
+  <div><span class="title">Responsible &amp; Safe AI Systems</span> &middot; <span class="sub">NPTEL</span></div>
+  <div class="place">Online</div>
+</div>
+
+<h2>Achievements</h2>
+<ul>
+  <li>Won 1st place in a frontend development hackathon with Nexus, a React game launcher interface.</li>
+</ul>
+
+<h2>Skills</h2>
+<div class="skillrow"><b>Languages</b><div class="tags"><span>TypeScript</span><span>JavaScript</span><span>Python</span><span>Java</span><span>C++</span><span>SQL</span><span>HTML/CSS</span></div></div>
+<div class="skillrow"><b>Frontend</b><div class="tags"><span>React</span><span>Next.js</span><span>Vite</span><span>Tailwind CSS</span><span>Framer Motion</span></div></div>
+<div class="skillrow"><b>Backend &amp; Data</b><div class="tags"><span>Supabase</span><span>PostgreSQL</span><span>pgvector</span><span>Row Level Security</span><span>Edge Functions (Deno)</span><span>REST APIs</span></div></div>
+<div class="skillrow"><b>AI / ML</b><div class="tags"><span>RAG</span><span>Embeddings</span><span>Hybrid Search</span><span>Reranking</span><span>LLM APIs</span><span>Retrieval Evaluation</span></div></div>
+<div class="skillrow"><b>Tools &amp; Testing</b><div class="tags"><span>Git</span><span>GitHub Actions</span><span>Playwright</span><span>pgTAP</span><span>Vitest</span><span>pytest</span><span>Clerk Auth</span></div></div>
+
+<h2>Languages</h2>
+<div class="langs"><div>English</div><div></div></div>
+
+</body>
+</html>

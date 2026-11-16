@@ -316,7 +316,7 @@
   function renderSearch(r) {
     const ratio = r.linear.steps / Math.max(1, r.binary.steps);
     const timeRatio = r.linear.ms / Math.max(1e-9, r.binary.ms);
-    const maxSteps = Math.max(r.linear.steps, r.binary.steps);
+    const maxSteps = Math.max(r.linear.steps, r.binary.steps, r.jump.steps, r.exponential.steps);
     const pct = (v) => Math.max(0.25, (v / maxSteps) * 100);
 
     const verdict = r.found
@@ -367,9 +367,23 @@
           <div class="race-sub">${fmtMs(r.linear.ms)}</div>
         </div>
       </div>
+      <div class="race race-2">
+        <div class="race-cell">
+          <div class="race-k"><i class="sw sw-exp"></i>Exponential · gallop then halve</div>
+          <div class="race-big">${fmt(r.exponential.steps)}<small>comparisons</small></div>
+          <div class="race-sub">${fmtMs(r.exponential.ms)} · O(log i), i = position</div>
+        </div>
+        <div class="race-cell">
+          <div class="race-k"><i class="sw sw-jump"></i>Jump · blocks of √n = ${fmt(r.jump.block)}</div>
+          <div class="race-big">${fmt(r.jump.steps)}<small>comparisons</small></div>
+          <div class="race-sub">${fmtMs(r.jump.ms)} · O(√n)</div>
+        </div>
+      </div>
 
       <div class="scale-compare" aria-label="Comparisons drawn to scale">
         <div class="sc-row"><span>Binary</span><div class="sc-track"><div class="sc-fill fill-binary" style="width:${pct(r.binary.steps)}%"></div></div><span>${fmt(r.binary.steps)}</span></div>
+        <div class="sc-row"><span>Exponential</span><div class="sc-track"><div class="sc-fill" style="background:var(--exp);width:${pct(r.exponential.steps)}%"></div></div><span>${fmt(r.exponential.steps)}</span></div>
+        <div class="sc-row"><span>Jump</span><div class="sc-track"><div class="sc-fill" style="background:var(--jump);width:${pct(r.jump.steps)}%"></div></div><span>${fmt(r.jump.steps)}</span></div>
         <div class="sc-row"><span>Linear</span><div class="sc-track"><div class="sc-fill" style="background:var(--linear);width:${pct(r.linear.steps)}%"></div></div><span>${fmt(r.linear.steps)}</span></div>
         <p class="note">Binary search used <b class="mono">${ratio >= 10 ? fmt(Math.round(ratio)) : ratio.toFixed(1)}×</b> fewer comparisons${timeRatio > 1.5 ? ` and ran <b class="mono">${fmt(Math.round(timeRatio))}×</b> faster` : ""}. Theory says at most <b class="mono">${Math.floor(r.log2n) + 1}</b> probes for n = ${fmt(r.n)}.</p>
       </div>
@@ -566,10 +580,10 @@
 
   function renderTable(newN) {
     const tb = $("#benchTable tbody");
-    if (!bench.results.length) { tb.innerHTML = `<tr class="t-empty"><td colspan="7">${bench.running ? "Running…" : "Results will appear here."}</td></tr>`; return; }
+    if (!bench.results.length) { tb.innerHTML = `<tr class="t-empty"><td colspan="10">${bench.running ? "Running…" : "Results will appear here."}</td></tr>`; return; }
     tb.innerHTML = bench.results.map((r) => `<tr class="${r.n === newN ? "is-new" : ""}">
-      <td>${fmt(r.n)}</td><td>${fmt(r.linear_steps)}</td><td>${r.binary_steps}</td><td>${r.log2n.toFixed(2)}</td>
-      <td>${(r.linear_time * 1000).toFixed(4)}</td><td>${(r.binary_time * 1000).toFixed(5)}</td>
+      <td>${fmt(r.n)}</td><td>${fmt(r.linear_steps)}</td><td>${fmt(r.jump_steps)}</td><td>${r.exp_steps}</td><td>${r.binary_steps}</td><td>${r.log2n.toFixed(2)}</td>
+      <td>${(r.linear_time * 1000).toFixed(4)}</td><td>${(r.jump_time * 1000).toFixed(4)}</td><td>${(r.binary_time * 1000).toFixed(5)}</td>
       <td class="speed">${fmt(Math.round(r.linear_steps / r.binary_steps))}×</td></tr>`).join("");
   }
 
@@ -599,7 +613,9 @@
 
     const xs = rs.map((r) => r.n);
     const [x0, x1] = rs.length === 1 ? [xs[0] / 10, xs[0] * 10] : niceLogDomain(xs);
-    const ys = rs.flatMap((r) => [get(r, "binary"), get(r, "linear")]).filter((v) => v > 0);
+    const SERIES = ["linear", "jump", "exp", "binary"];
+    const NAMES = { linear: "Linear", jump: "Jump", exp: "Exp", binary: "Binary" };
+    const ys = rs.flatMap((r) => SERIES.map((s) => get(r, s))).filter((v) => v > 0);
     const [y0, y1] = niceLogDomain(ys);
     const X = (v) => m.l + ((Math.log10(v) - Math.log10(x0)) / (Math.log10(x1) - Math.log10(x0))) * iw;
     const Y = (v) => m.t + ih - ((Math.log10(Math.max(v, y0)) - Math.log10(y0)) / (Math.log10(y1) - Math.log10(y0))) * ih;
@@ -610,14 +626,16 @@
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    const series = ["linear", "binary"].map((s) => {
+    const series = SERIES.map((s) => {
       const pts = rs.map((r) => [X(r.n), Y(get(r, s))]);
       const d = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join("");
       const last = pts[pts.length - 1], lastR = rs[rs.length - 1];
+      // Binary and exponential sit close together; nudge labels apart.
+      const dy = s === "exp" ? (isTime ? -8 : -10) : s === "binary" ? 10 : 0;
       return `<g class="series s-${s}">
-        <path d="${d}" class="${animate ? "line-draw" : ""}" />
+        <path d="${d}" class="${animate && s !== "exp" ? "line-draw" : ""}" />
         ${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" />`).join("")}
-        <text class="dlabel" x="${last[0] + 10}" y="${last[1] + 4}">${s === "binary" ? "Binary" : "Linear"} ${isTime ? fmtMs(get(lastR, s)) : fmt(get(lastR, s))}</text>
+        <text class="dlabel" x="${last[0] + 10}" y="${last[1] + 4 + dy}">${NAMES[s]} ${isTime ? fmtMs(get(lastR, s)) : fmt(get(lastR, s))}</text>
       </g>`;
     }).join("");
 
@@ -649,6 +667,8 @@
       cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
       tipEl.innerHTML = `<h4>n = ${fmt(r.n)}</h4>
         <div><span><i class="sw sw-binary"></i>Binary</span><span>${r.binary_steps} cmp · ${fmtMs(r.binary_time * 1000)}</span></div>
+        <div><span><i class="sw sw-exp"></i>Exponential</span><span>${r.exp_steps} cmp · ${fmtMs(r.exp_time * 1000)}</span></div>
+        <div><span><i class="sw sw-jump"></i>Jump</span><span>${fmt(r.jump_steps)} cmp · ${fmtMs(r.jump_time * 1000)}</span></div>
         <div><span><i class="sw sw-linear"></i>Linear</span><span>${fmt(r.linear_steps)} cmp · ${fmtMs(r.linear_time * 1000)}</span></div>
         <div><span>Ratio</span><span>${fmt(Math.round(r.linear_steps / r.binary_steps))}× fewer</span></div>`;
       const sx = (cx / W) * host.clientWidth;

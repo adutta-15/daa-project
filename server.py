@@ -30,8 +30,9 @@ from urllib.parse import parse_qs, urlparse
 from benchmark import run_benchmark, time_search
 from data import (add_entry, clean_input, delete_entry, generate_data,
                   is_sorted, load_data)
-from search import (binary_search, binary_search_recursive, first_occurrence,
-                    linear_search, lower_bound, prefix_search)
+from search import (binary_search, binary_search_recursive, exponential_search,
+                    first_occurrence, jump_search, linear_search, lower_bound,
+                    prefix_search)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(ROOT, "web")
@@ -136,7 +137,10 @@ def api_generate(body):
     capped = n > MAX_GENERATE
     n = min(n, MAX_GENERATE)
     seed = body.get("seed")
-    seed = None if seed in (None, "") else int(seed)
+    try:
+        seed = None if seed in (None, "") else int(str(seed).strip())
+    except ValueError:
+        return 400, {"error": "Seed must be a whole number."}
     t0 = time.perf_counter()
     arr = generate_data(n, seed=seed)
     elapsed = time.perf_counter() - t0
@@ -193,6 +197,8 @@ def api_search(body):
         resorted = ensure_sorted(arr)
         bt, bc = time_search(binary_search, arr, key, repeats=100)
         lt, lc = time_search(linear_search, arr, key)
+        jt, jc = time_search(jump_search, arr, key, repeats=10)
+        et, ec = time_search(exponential_search, arr, key, repeats=100)
         idx, _ = binary_search(arr, key)
         ridx, rc = binary_search_recursive(arr, key)
         tidx, trace = binary_search_trace(arr, key)
@@ -212,6 +218,9 @@ def api_search(body):
             "binary": {"steps": bc, "ms": bt * 1000, "trace": trace},
             "recursive": {"steps": rc, "index": ridx},
             "linear": {"steps": lc, "ms": lt * 1000},
+            "jump": {"steps": jc, "ms": jt * 1000,
+                     "block": max(1, math.isqrt(len(arr)))},
+            "exponential": {"steps": ec, "ms": et * 1000},
             "log2n": math.log2(len(arr)),
             "neighbours": neighbourhood(arr, centre),
             "resorted": resorted,
@@ -361,8 +370,11 @@ class Handler(SimpleHTTPRequestHandler):
         handler = POST_ROUTES.get(url.path)
         if handler is None:
             return self._json(404, {"error": "Unknown endpoint."})
-        length = int(self.headers.get("Content-Length") or 0)
-        if length > MAX_UPLOAD_BYTES:
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._json(400, {"error": "Malformed request."})
+        if length < 0 or length > MAX_UPLOAD_BYTES:
             return self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
                               {"error": "File is larger than 60 MB."})
         try:

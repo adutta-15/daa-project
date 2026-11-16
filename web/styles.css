@@ -39,6 +39,8 @@
   --linear: #2F6FA3;
   --linear-soft: #E1ECF5;
   --walk: #B98A2C;
+  --jump: #2E8B6E;
+  --exp: #8A5BB5;
   --ok: #2F7D4F; --ok-soft: #E2F1E7;
   --bad: #B4232C; --bad-soft: #F8E1E2;
   --focus: #D9480F;
@@ -62,6 +64,8 @@
   --linear: #4A90D0;
   --linear-soft: #142638;
   --walk: #CFA040;
+  --jump: #4CB592;
+  --exp: #A982D6;
   --ok: #4CB27A; --ok-soft: #13291D;
   --bad: #E5545C; --bad-soft: #351417;
   --focus: #FF8A5C;
@@ -402,9 +406,13 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
 .sw-binary { background: var(--binary); }
 .sw-linear { background: var(--linear); }
 .sw-walk { background: var(--walk); }
+.sw-jump { background: var(--jump); }
+.sw-exp { background: var(--exp); }
+.race-2 { grid-template-columns: repeat(2, 1fr); margin-top: var(--s3); box-shadow: none; }
+.race-2 .race-big { font-size: 1.6rem; }
 
 .scale-compare { margin: var(--s6) 0 var(--s10); }
-.sc-row { display: grid; grid-template-columns: 90px 1fr 110px; align-items: center; gap: var(--s4); margin-bottom: var(--s2); font-size: var(--t-sm); }
+.sc-row { display: grid; grid-template-columns: 100px 1fr 110px; align-items: center; gap: var(--s4); margin-bottom: var(--s2); font-size: var(--t-sm); }
 .sc-row > span:first-child { color: var(--ink-2); }
 .sc-row > span:last-child { text-align: right; font-family: var(--f-mono); color: var(--ink-2); }
 .sc-track { height: 14px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
@@ -517,6 +525,8 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
 .chart .series circle { stroke: var(--surface); stroke-width: 2; }
 .chart .s-binary path { stroke: var(--binary); } .chart .s-binary circle { fill: var(--binary); }
 .chart .s-linear path { stroke: var(--linear); } .chart .s-linear circle { fill: var(--linear); }
+.chart .s-jump path { stroke: var(--jump); } .chart .s-jump circle { fill: var(--jump); }
+.chart .s-exp path { stroke: var(--exp); stroke-dasharray: 5 4; } .chart .s-exp circle { fill: var(--exp); }
 .chart .line-draw { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw .8s var(--ease-out) forwards; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 .chart .dlabel { fill: var(--ink-2); font: 500 11px var(--f-mono); }
@@ -653,7 +663,7 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
   .probe { grid-template-columns: 24px minmax(0,1fr) auto; }
   .probe-range { grid-column: 2 / -1; grid-row: 2; }
   .probe-meta { display: none; }
-  .sc-row { grid-template-columns: 60px 1fr 80px; }
+  .sc-row { grid-template-columns: 84px 1fr 72px; }
   .toolbar .btn { margin-left: 0; width: 100%; }
   .chart { height: 280px; }
   .input-sm { width: 130px; }

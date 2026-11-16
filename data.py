@@ -13,7 +13,7 @@ from search import binary_search
 
 def clean_input(text):
     """Strip + lowercase. Returns None if empty/invalid."""
-    if text is None:
+    if not isinstance(text, str):
         return None
     text = text.strip().lower()
     return text if text else None
@@ -30,8 +30,10 @@ def load_data(path):
     Returns (sorted_list, message). On error returns ([], error_message).
     """
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:   # -sig strips a BOM
             items = [clean_input(line) for line in f]
+        if any("\x00" in x for x in items if x):
+            return [], "File is corrupt or not a text file."
         items = [x for x in items if x]          # drop empty lines
         if not items:
             return [], "File is empty."

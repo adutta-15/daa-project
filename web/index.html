@@ -160,7 +160,7 @@
           <header class="view-head">
             <p class="eyebrow">Step 2</p>
             <h1 id="h-search">Exact search, head to head</h1>
-            <p class="lede">Each query runs through iterative binary search, recursive binary search and a linear scan — on the same list, counting every comparison.</p>
+            <p class="lede">Each query runs through iterative and recursive binary search, exponential search, jump search and a linear scan — on the same list, counting every comparison.</p>
           </header>
 
           <form id="searchForm" class="bigsearch" role="search" novalidate>
@@ -284,6 +284,8 @@
           <div class="panel chart-panel">
             <div class="legend" id="legend">
               <span class="lg"><i class="sw sw-binary"></i>Binary · O(log n)</span>
+              <span class="lg"><i class="sw sw-exp"></i>Exponential · O(log n)</span>
+              <span class="lg"><i class="sw sw-jump"></i>Jump · O(√n)</span>
               <span class="lg"><i class="sw sw-linear"></i>Linear · O(n)</span>
               <span class="muted small lg-note">log–log scale</span>
             </div>
@@ -298,9 +300,9 @@
           <div class="table-wrap">
             <table class="table mono" id="benchTable">
               <thead>
-                <tr><th>n</th><th>Linear steps</th><th>Binary steps</th><th>log₂ n</th><th>Linear ms</th><th>Binary ms</th><th>Fewer comparisons</th></tr>
+                <tr><th>n</th><th>Linear steps</th><th>Jump steps</th><th>Exp steps</th><th>Binary steps</th><th>log₂ n</th><th>Linear ms</th><th>Jump ms</th><th>Binary ms</th><th>Linear ÷ binary</th></tr>
               </thead>
-              <tbody><tr class="t-empty"><td colspan="7">Results will appear here.</td></tr></tbody>
+              <tbody><tr class="t-empty"><td colspan="10">Results will appear here.</td></tr></tbody>
             </table>
           </div>
         </section>
@@ -369,6 +371,8 @@
               <tbody>
                 <tr><td><span class="sw sw-binary"></span> Binary (iterative)</td><td class="mono">O(1)</td><td class="mono">O(log n)</td><td class="mono">O(log n)</td><td class="mono">O(1)</td></tr>
                 <tr><td><span class="sw sw-binary"></span> Binary (recursive)</td><td class="mono">O(1)</td><td class="mono">O(log n)</td><td class="mono">O(log n)</td><td class="mono">O(log n) stack</td></tr>
+                <tr><td><span class="sw sw-exp"></span> Exponential</td><td class="mono">O(1)</td><td class="mono">O(log i)</td><td class="mono">O(log n)</td><td class="mono">O(1)</td></tr>
+                <tr><td><span class="sw sw-jump"></span> Jump (block √n)</td><td class="mono">O(1)</td><td class="mono">O(√n)</td><td class="mono">O(√n)</td><td class="mono">O(1)</td></tr>
                 <tr><td><span class="sw sw-linear"></span> Linear</td><td class="mono">O(1)</td><td class="mono">O(n)</td><td class="mono">O(n)</td><td class="mono">O(1)</td></tr>
                 <tr><td><span class="sw sw-walk"></span> Prefix (lower-bound + walk)</td><td class="mono" colspan="3">O(log n + k), k = matches</td><td class="mono">O(1)</td></tr>
               </tbody>

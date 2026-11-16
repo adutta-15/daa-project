@@ -3,6 +3,7 @@ search.py  (Member 1)
 Searching algorithms. NO printing here, only return values.
 Every exact search returns (index, comparisons).
 """
+import math
 
 
 def binary_search(arr, key):
@@ -47,6 +48,69 @@ def linear_search(arr, key):
         count += 1
         if arr[i] == key:
             return i, count
+    return -1, count
+
+
+def jump_search(arr, key):
+    """
+    Jump search: hop ahead in blocks of sqrt(n), then scan the one block
+    that can hold the key. Time O(sqrt n), Space O(1).
+    Every probe of an element counts as one comparison.
+    """
+    n = len(arr)
+    if n == 0:
+        return -1, 0
+    step = max(1, math.isqrt(n))
+    count = 0
+    prev, cur = 0, step
+    # Jump phase: find the block whose last element is >= key.
+    while True:
+        last = min(cur, n) - 1
+        count += 1
+        if arr[last] >= key:
+            break
+        if cur >= n:
+            return -1, count          # key is larger than everything
+        prev, cur = cur, cur + step
+    # Linear phase inside arr[prev .. last].
+    for i in range(prev, last + 1):
+        count += 1
+        if arr[i] == key:
+            return i, count
+        if arr[i] > key:
+            break
+    return -1, count
+
+
+def exponential_search(arr, key):
+    """
+    Exponential (galloping) search: double a bound 1, 2, 4, ... until
+    arr[bound] >= key, then binary search inside [bound/2, bound].
+    Time O(log i) where i is the key's position, so it is fast for keys
+    near the front and never worse than O(log n). Space O(1).
+    """
+    n = len(arr)
+    if n == 0:
+        return -1, 0
+    count = 1
+    if arr[0] == key:
+        return 0, count
+    bound = 1
+    while bound < n:
+        count += 1
+        if arr[bound] >= key:
+            break
+        bound *= 2
+    low, high = bound // 2, min(bound, n - 1)
+    while low <= high:
+        mid = (low + high) // 2
+        count += 1
+        if arr[mid] == key:
+            return mid, count
+        elif arr[mid] < key:
+            low = mid + 1
+        else:
+            high = mid - 1
     return -1, count
 
 
