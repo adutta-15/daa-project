@@ -19,6 +19,14 @@ def recursive_binary_search(records,target,low,high,trace):
  if value==target: frame["comparison"]="match"; trace.append(frame); return mid
  if value<target: frame["comparison"]="less"; trace.append(frame); return recursive_binary_search(records,target,mid+1,high,trace)
  frame["comparison"]="greater"; trace.append(frame); return recursive_binary_search(records,target,low,mid-1,trace)
+def recursive_boundary(records,target,low,high,find_first):
+ """Recursively locate either edge of a run of equal sorted keys."""
+ if low>high:return -1
+ mid=(low+high)//2; value=records[mid]["key"]
+ if value<target:return recursive_boundary(records,target,mid+1,high,find_first)
+ if value>target:return recursive_boundary(records,target,low,mid-1,find_first)
+ candidate=recursive_boundary(records,target,low,mid-1,True) if find_first else recursive_boundary(records,target,mid+1,high,False)
+ return mid if candidate==-1 else candidate
 def summary():
  r=STATE.records
  if not r:return {"n":0}
@@ -74,7 +82,10 @@ def api_search(b):
  with STATE.lock:
   if not STATE.records:return 409,{"error":"Load or create a dataset first."}
   trace=[];t=time.perf_counter_ns(); index=recursive_binary_search(STATE.records,target,0,len(STATE.records)-1,trace); ms=(time.perf_counter_ns()-t)/1e6
-  return 200,{"target":target,"found":index!=-1,"index":index,"record":STATE.records[index]["data"] if index!=-1 else None,"trace":trace,"recursive_calls":len(trace),"comparisons":len(trace),"recursion_depth":len(trace),"execution_ms":ms,"n":len(STATE.records),"field":STATE.field,"theoretical":"Θ(log n)"}
+  first=recursive_boundary(STATE.records,target,0,index,True) if index!=-1 else -1
+  last=recursive_boundary(STATE.records,target,index,len(STATE.records)-1,False) if index!=-1 else -1
+  matches=[record["data"] for record in STATE.records[first:last+1]] if index!=-1 else []
+  return 200,{"target":target,"found":index!=-1,"index":index,"record":STATE.records[index]["data"] if index!=-1 else None,"matches":matches[:200],"total_matches":len(matches),"truncated":len(matches)>200,"trace":trace,"recursive_calls":len(trace),"comparisons":len(trace),"recursion_depth":len(trace),"execution_ms":ms,"n":len(STATE.records),"field":STATE.field,"theoretical":"Θ(log n)"}
 def api_select_field(b):
  field=str(b.get("field") or "")
  with STATE.lock:
