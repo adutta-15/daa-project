@@ -25,12 +25,18 @@ def summary():
  return {"n":len(r),"label":STATE.label,"scenario":STATE.scenario,"field":STATE.field,"first":r[0]["key"],"last":r[-1]["key"],"max_depth":math.ceil(math.log2(len(r)+1)),"columns":list(r[0]["data"].keys())}
 def parse(raw,name,field):
  try:text=raw.decode("utf-8-sig")
- except UnicodeDecodeError: raise ValueError("The file must be UTF-8 text.")
+ except UnicodeDecodeError:
+  try:text=raw.decode("utf-16")
+  except UnicodeDecodeError: raise ValueError("The CSV must be saved as UTF-8 or UTF-16 text.")
  if "\x00" in text: raise ValueError("The file is not valid text.")
  if name.lower().endswith(".csv"):
-  rows=list(csv.DictReader(io.StringIO(text)))
+  try: dialect=csv.Sniffer().sniff(text[:8192], delimiters=",;\t|")
+  except csv.Error: dialect=csv.excel
+  rows=list(csv.DictReader(io.StringIO(text),dialect=dialect))
   if not rows or not rows[0]:raise ValueError("CSV needs a header row and records.")
-  cols=list(rows[0]); field=field if field in cols else cols[0]
+  cols=list(rows[0])
+  if field and field not in cols:raise ValueError(f"Search column '{field}' was not found. Available columns: {', '.join(cols)}.")
+  field=field or cols[0]
   r=[{"key":norm(x.get(field)),"data":{k:str(v or "").strip() for k,v in x.items()}} for x in rows]
  else:
   field="value"; r=[{"key":norm(x),"data":{"value":x.strip()}} for x in text.splitlines() if x.strip()]

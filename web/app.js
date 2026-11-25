@@ -1,3 +1,6 @@
+if(location.protocol==='file:'){
+ location.replace('http://127.0.0.1:8000');
+} else {
 const $=s=>document.querySelector(s);let state={n:0},last=null,step=0,timer=null;
 async function api(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined}),d=await r.json();if(!r.ok)throw Error(d.error);return d}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -11,3 +14,4 @@ function showStep(){if(!last)return;const f=last.trace[step];$('#visual').innerH
 document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{if(!last)return;const a=b.dataset.step;if(a==='reset')step=0;else if(a==='prev')step=Math.max(0,step-1);else if(a==='next')step=Math.min(last.trace.length,step+1);else{clearInterval(timer);timer=setInterval(()=>{if(step>=last.trace.length)return clearInterval(timer);step++;showStep()},700)}showStep()});
 function metrics(){if(!last)return;$('#metrics').innerHTML=[['Dataset size',last.n.toLocaleString()],['Recursive calls',last.recursive_calls],['Comparisons',last.comparisons],['Recursion depth',last.recursion_depth],['Execution time',last.execution_ms.toFixed(4)+' ms'],['Theoretical complexity','Θ(log n)']].map(x=>`<div class="kv"><span class="kv-k">${x[0]}</span><b class="kv-v mono">${x[1]}</b></div>`).join('')}
 function growth(){if(!state.n)return;const ns=[10,100,1000,10000,100000,1000000].filter(n=>n<=Math.max(1000000,state.n));$('#growth').innerHTML=ns.map(n=>`<div><span>${n.toLocaleString()} records</span><b>${Math.ceil(Math.log2(n+1))} levels</b></div>`).join('')}api('/api/state').then(setState);
+}
