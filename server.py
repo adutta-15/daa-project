@@ -75,7 +75,17 @@ def api_search(b):
   if not STATE.records:return 409,{"error":"Load or create a dataset first."}
   trace=[];t=time.perf_counter_ns(); index=recursive_binary_search(STATE.records,target,0,len(STATE.records)-1,trace); ms=(time.perf_counter_ns()-t)/1e6
   return 200,{"target":target,"found":index!=-1,"index":index,"record":STATE.records[index]["data"] if index!=-1 else None,"trace":trace,"recursive_calls":len(trace),"comparisons":len(trace),"recursion_depth":len(trace),"execution_ms":ms,"n":len(STATE.records),"field":STATE.field,"theoretical":"Θ(log n)"}
-GET={"/api/state":api_state};POST={"/api/generate":api_generate,"/api/load":api_load,"/api/search":api_search}
+def api_select_field(b):
+ field=str(b.get("field") or "")
+ with STATE.lock:
+  if not STATE.records:return 409,{"error":"Load a dataset first."}
+  columns=list(STATE.records[0]["data"])
+  if field not in columns:return 400,{"error":f"Unknown field. Available fields: {', '.join(columns)}."}
+  STATE.field=field
+  for record in STATE.records:record["key"]=norm(record["data"].get(field))
+  STATE.records.sort(key=lambda record:record["key"])
+  out=summary();out["message"]=f"Dataset is now sorted by {field}.";return 200,out
+GET={"/api/state":api_state};POST={"/api/generate":api_generate,"/api/load":api_load,"/api/search":api_search,"/api/select-field":api_select_field}
 class Handler(SimpleHTTPRequestHandler):
  def __init__(self,*a,**k):super().__init__(*a,directory=WEB_DIR,**k)
  def _json(self,status,payload):
