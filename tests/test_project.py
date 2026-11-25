@@ -269,57 +269,29 @@ class ServerApiTests(unittest.TestCase):
             return e.code, json.loads(e.read())
 
     def test_flow(self):
-        status, s = self.call("/api/generate", {"n": "2,000", "seed": 42})
+        status, s = self.call("/api/generate", {"n": 2000, "scenario": "inventory"})
         self.assertEqual(status, 200)
         self.assertEqual(s["n"], 2000)
+        self.assertEqual(s["field"], "product_id")
 
-        key = s["sample"][3]["v"]
-        status, r = self.call("/api/search", {"key": key.upper()})
+        status, r = self.call("/api/search", {"target": "SKU-000125"})
         self.assertEqual(status, 200)
         self.assertTrue(r["found"])
-        self.assertEqual(r["binary"]["steps"], len(r["binary"]["trace"]))
-        for p in r["binary"]["trace"]:   # the step-through view needs these
-            self.assertLessEqual(p["low_v"], p["value"])
-            self.assertLessEqual(p["value"], p["high_v"])
-        self.assertEqual(r["binary"]["trace"][-1]["cmp"], "eq")
-        for algo in ("jump", "exponential", "interpolation", "linear", "recursive"):
-            self.assertIn("steps", r[algo])
+        self.assertEqual(r["record"]["product_id"], "SKU-000125")
+        self.assertEqual(r["recursive_calls"], len(r["trace"]))
+        self.assertEqual(r["theoretical"], "Θ(log n)")
+        for probe in r["trace"]:
+            self.assertLessEqual(probe["low_value"], probe["value"])
+            self.assertLessEqual(probe["value"], probe["high_value"])
 
-        status, r = self.call("/api/search", {"key": "0000"})
+        status, r = self.call("/api/search", {"target": "SKU-009999"})
         self.assertFalse(r["found"])
-        self.assertEqual(r["insertion_point"], 0)
-
-        status, p = self.call("/api/prefix", {"prefix": key[:2]})
-        self.assertEqual(status, 200)
-        self.assertIn(key, p["matches"])
-
-        status, a = self.call("/api/add", {"item": "aaaaa-test"})
-        self.assertEqual((status, a["n"]), (200, 2001))
-        status, d = self.call("/api/delete", {"item": "aaaaa-test"})
-        self.assertEqual((status, d["n"]), (200, 2000))
-        status, _ = self.call("/api/delete", {"item": "aaaaa-test"})
-        self.assertEqual(status, 404)
-
-        status, b = self.call("/api/browse?q=m&limit=5")
-        self.assertEqual(len(b["rows"]), 5)
-
-        status, s = self.call("/api/generate", {"n": 500, "seed": 1, "distribution": "exponential"})
-        self.assertEqual(status, 200)
-        self.assertIn("exponential", s["label"])
 
     def test_bad_input_is_rejected_not_500(self):
         self.assertEqual(self.call("/api/generate", {"n": "abc"})[0], 400)
-        self.assertEqual(self.call("/api/generate", {"n": 10, "seed": "x"})[0], 400)
-        self.assertEqual(self.call("/api/search", {"key": "   "})[0], 400)
-        self.assertEqual(self.call("/api/search", {"key": 123})[0], 400)
-        self.assertEqual(self.call("/api/benchmark", {"sizes": [0]})[0], 400)
-        self.assertEqual(self.call("/api/benchmark", {"sizes": [10], "case": "x"})[0], 400)
-        status, b = self.call("/api/benchmark", {"sizes": [1000], "case": "average"})
-        self.assertEqual((status, b["results"][0]["case"]), (200, "average"))
-        self.assertEqual(self.call("/api/generate", {"n": 10, "distribution": "x"})[0], 400)
-        self.assertEqual(self.call("/api/benchmark", {"sizes": [10], "distribution": "x"})[0], 400)
-        status, b = self.call("/api/benchmark", {"sizes": [1000], "distribution": "skewed"})
-        self.assertEqual((status, b["results"][0]["distribution"]), (200, "skewed"))
+        self.assertEqual(self.call("/api/generate", {"n": 0})[0], 400)
+        self.assertEqual(self.call("/api/search", {"target": "   "})[0], 400)
+        self.assertEqual(self.call("/api/search", {"target": 123})[0], 400)
         self.assertEqual(self.call("/api/nope", {})[0], 404)
 
     def test_load_rejects_binary_upload(self):
@@ -327,7 +299,7 @@ class ServerApiTests(unittest.TestCase):
         status, r = self.call("/api/load", {
             "filename": "x.png",
             "content_b64": base64.b64encode(b"\x89PNG\x00\xff\xfe").decode()})
-        self.assertEqual(status, 422)
+        self.assertEqual(status, 400)
 
 
 if __name__ == "__main__":
