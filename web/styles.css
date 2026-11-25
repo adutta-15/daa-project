@@ -234,6 +234,11 @@ main { padding: var(--s10) var(--s10) var(--s16); max-width: 1180px; width: 100%
 .panel-quiet.is-filled { background: var(--surface); border-style: solid; box-shadow: var(--shadow); }
 .split { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: var(--s6); align-items: start; }
 .split-even { grid-template-columns: 1fr 1fr; margin-bottom: var(--s6); }
+.workspace-layout { display: grid; grid-template-columns: 1fr; gap: var(--s6); }
+.workspace-controls { display: grid; grid-template-columns: 1fr; gap: var(--s6); }
+.workspace-section { min-width: 0; }
+.upload-section { border-top: 1px solid var(--rule); padding-top: var(--s6); }
+.workspace-profile { min-height: 0; }
 .side-h { font: 500 var(--t-md) var(--f-display); margin-bottom: var(--s4); }
 .subhead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); margin: var(--s8) 0 var(--s3); }
 .subhead h3 { font: 600 var(--t-sm) var(--f-body); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2); }
